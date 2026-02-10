@@ -13,8 +13,8 @@ SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 2. ตั้งค่า LINE (ต้องเอาจาก LINE Developers) ---
-LINE_ACCESS_TOKEN = "ใส่ Access Token ยาวๆ ของคุณที่นี่"
-LINE_SECRET = "ใส่ Channel Secret ของคุณที่นี่"
+LINE_ACCESS_TOKEN = "BMEKLnhpRvRzArHJsnTzulIyqefXrwYo6QDBroRLMbGcV16/Ca+8eI5v5H5AfgTEOCwMD47HldTFuCBve9JRa1uAlAuq24sK2Iv/C5T/+p8Qrf3rxQKbOiaiH4CDQWf64AYuUbzSiuiPYdnrSWhm0gdB04t89/1O/w1cDnyilFU="
+LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
@@ -73,4 +73,5 @@ def handle_text(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"✅ อนุมัติหมายเลข {booking_id} เรียบร้อย!"))
 
 if __name__ == "__main__":
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
