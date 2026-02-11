@@ -78,17 +78,20 @@ if choice == "📝 จองใหม่":
                         "purpose": reason, "destination": destination, "status": "Pending"}
                 supabase.table("bookings").insert(data).execute()
                 st.success("✅ ส่งคำขอเรียบร้อยแล้ว!")
-                # --- ส่วนที่ต้องเพิ่มเพื่อแจ้งเตือนเข้า LINE ---
-try:
-    # URL ของ Render ของคุณ (เปลี่ยนเป็นชื่อโปรเจกต์จริงของคุณ)
-    render_url = "https://line-booking-system.onrender.com/notify" 
-    
-    # ข้อมูลที่จะส่งไปโชว์ใน LINE
-    payload = {
-        "resource": resource_val,  # ชื่อรถหรือห้อง
-        "name": name_val,          # ชื่อผู้จอง
-        "date": date_val           # วันที่จอง
-    }
+
+    # --- ส่งแจ้งเตือนไปที่ Render (เพิ่มต่อจากบรรทัด 80) ---
+        try:
+            # เปลี่ยนเป็น URL จริงของคุณที่ได้จากหน้า Dashboard ของ Render
+            render_url = "https://line-booking-system.onrender.com/notify" 
+            payload = {
+                "resource": res,
+                "name": name,
+                "date": t_start.strftime("%d/%m/%Y %H:%M")
+            }
+            # ใช้ timeout เพื่อไม่ให้เว็บค้างหาก Render หลับอยู่
+            requests.post(render_url, json=payload, timeout=5)
+        except:
+            pass
     
     # ยิงข้อมูลไปหาบอทที่ Render
     requests.post(render_url, json=payload, timeout=5)
@@ -170,3 +173,4 @@ elif choice == "📅 ตารางงาน (Real-time)":
             
 
             st.dataframe(df_display, use_container_width=True)
+
