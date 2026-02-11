@@ -72,6 +72,26 @@ if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
+# --- วางต่อท้ายฟังก์ชัน handle_message (ประมาณบรรทัดที่ 80) ---
+
+@app.post("/notify")
+async def notify_booking(request: Request):
+    try:
+        data = await request.json()
+        resource = data.get("resource", "ไม่ระบุ")
+        name = data.get("name", "ไม่ระบุ")
+        date = data.get("date", "ไม่ระบุ")
+
+        # ข้อความที่จะส่งเข้า LINE
+        msg = f"🔔 มีรายการจองใหม่!\n\n🔹 รายการ: {resource}\n👤 ผู้จอง: {name}\n📅 เวลาเริ่ม: {date}\n\n⚠️ กรุณาเข้าหน้าเว็บ Admin เพื่อตรวจสอบครับ"
+
+        # ส่งแจ้งเตือนหาทุกคนที่ต่อกับบอท
+        line_bot_api.broadcast(TextSendMessage(text=msg))
+        
+        return {"status": "success"}
+    except Exception as e:
+        print(f"Error in /notify: {e}")
+        return {"status": "error", "message": str(e)}
 
 
 
