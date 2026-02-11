@@ -43,6 +43,7 @@ async def callback(request: Request):
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
+    print(event)  # <--- วางต่อจากบรรทัดที่ 45 ตรงนี้ครับ
     text = event.message.text.strip()
     user_id = event.source.user_id
 
@@ -70,5 +71,6 @@ def handle_message(event):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
