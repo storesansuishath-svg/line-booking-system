@@ -1,23 +1,38 @@
-from fastapi import FastAPI, Request, BackgroundTasks
+from fastapi import FastAPI, Request
 from linebot import LineBotApi, WebhookHandler
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, FlexSendMessage, PostbackEvent
-from supabase import create_client
-import uvicorn
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, FlexSendMessage
 import json
+import os
 
 app = FastAPI()
 
-# --- 1. ตั้งค่าการเชื่อมต่อ (เอามาจากโค้ดเดิมของคุณ) ---
-SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
-SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# --- 1. ตั้งค่า TOKEN (ใส่รหัสของคุณ) ---
+LINE_ACCESS_TOKEN = "ใส่ Access Token ของคุณ"
+LINE_SECRET = "ใส่ Channel Secret ของคุณ"
 
-# --- 2. ตั้งค่า LINE (ต้องเอาจาก LINE Developers) ---
-LINE_ACCESS_TOKEN = "BMEKLnhpRvRzArHJsnTzulIyqefXrwYo6QDBroRLMbGcV16/Ca+8eI5v5H5AfgTEOCwMD47HldTFuCBve9JRa1uAlAuq24sK2Iv/C5T/+p8Qrf3rxQKbOiaiH4CDQWf64AYuUbzSiuiPYdnrSWhm0gdB04t89/1O/w1cDnyilFU="
-LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
+# --- 2. รายชื่อ Admin 5 คน (ให้ใส่ User ID ของแต่ละคน) ---
+ADMIN_IDS = [
+    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1",
+    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx2",
+    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx3",
+    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4",
+    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx5"
+]
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
+
+# ฟังก์ชันโหลดหน้าตาการ์ดเมนู
+def send_flex_menu(reply_token):
+    try:
+        with open("main_menu.json", "r", encoding="utf-8") as f:
+            flex_content = json.load(f)
+        line_bot_api.reply_message(
+            reply_token,
+            FlexSendMessage(alt_text="เมนูหลักระบบจอง", contents=flex_content)
+        )
+    except Exception as e:
+        line_bot_api.reply_message(reply_token, TextSendMessage(text="Error loading menu"))
 
 @app.post("/callback")
 async def callback(request: Request):
@@ -27,51 +42,31 @@ async def callback(request: Request):
     return 'OK'
 
 @handler.add(MessageEvent, message=TextMessage)
-def handle_text(event):
-    msg = event.message.text
+def handle_message(event):
+    text = event.message.text.strip()
     user_id = event.source.user_id
 
-    # --- คีย์เวิร์ด: เช็ค หรือ ดู ---
-    if msg in ["เช็ค", "ดู"]:
-        reply_msg = "🔍 เลือกสิ่งที่ต้องการเช็คครับ:\n- ดูรถ\n- ดูห้องประชุม"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply_msg))
+    # คำสั่งหลัก: หน้าหลัก, ทัก, สวัสดี
+    if text in ["หน้าหลัก", "ทัก", "สวัสดี"]:
+        send_flex_menu(event.reply_token)
 
-    # --- คีย์เวิร์ด: ดูรถ ---
-    elif msg == "ดูรถ":
-        res = supabase.table("bookings").select("*").eq("status", "Approved").execute()
-        car_list = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG ขับเอง"]
-        cars = [item for item in res.data if item['resource'] in car_list]
-        
-        if not cars:
-            reply = "🚗 ตอนนี้ไม่มีรถถูกจองครับ (ว่างทุกคัน)"
-        else:
-            reply = "📋 รายการจองรถ:\n" + "\n".join([f"• {c['resource']} ({c['requester']})" for c in cars])
+    # คำสั่ง: จอง
+    elif text == "จอง":
+        url = "https://office-booking-system-hll8ub77ixfgmj2s4slbu4.streamlit.app/"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"📝 กดเพื่อทำการจองได้เลยครับ:\n{url}"))
+
+    # คำสั่ง: ดู
+    elif text == "ดู":
+        reply = "🔍 เลือกรายการที่ต้องการดู:\n1. ตารางรถ\n2. ตารางห้องประชุม\n3. รายการอนุมัติ/ไม่อนุมัติ"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
 
-    # --- คีย์เวิร์ด: จอง ---
-    elif msg == "จอง":
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(
-            text="📝 กดจองที่หน้าเว็บนี้ได้เลยครับ:\nhttps://office-booking-system-hll8ub77ixfgmj2s4slbu4.streamlit.app/"
-        ))
-
-    # --- คีย์เวิร์ด: อนุมัติ (โชว์รายการที่ค้างอยู่) ---
-    elif msg == "อนุมัติ":
-        res = supabase.table("bookings").select("*").eq("status", "Pending").execute()
-        if not res.data:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ ไม่มีรายการค้างอนุมัติครับ"))
+    # คำสั่ง: อนุมัติ/ไม่อนุมัติ (เช็ค Admin 5 คน)
+    elif text == "อนุมัติ/ไม่อนุมัติ":
+        if user_id in ADMIN_IDS:
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🔑 เข้าสู่ระบบแอดมิน: กำลังดึงรายการที่รออนุมัติ..."))
         else:
-            # ส่งรายการแรกที่ค้างอยู่มาให้กดปุ่ม (ตัวอย่าง)
-            item = res.data[0]
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(
-                text=f"📌 รออนุมัติ: {item['resource']}\nโดย: {item['requester']}\n(พิมพ์ 'ยืนยัน {item['id']}' เพื่ออนุมัติ)"
-            ))
-
-    # --- คีย์เวิร์ด: ยืนยัน [ID] ---
-    elif msg.startswith("ยืนยัน "):
-        booking_id = msg.split(" ")[1]
-        supabase.table("bookings").update({"status": "Approved"}).eq("id", booking_id).execute()
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"✅ อนุมัติหมายเลข {booking_id} เรียบร้อย!"))
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠️ เฉพาะแอดมิน 5 ท่านที่ได้รับอนุญาตเท่านั้นครับ"))
 
 if __name__ == "__main__":
-
+    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
