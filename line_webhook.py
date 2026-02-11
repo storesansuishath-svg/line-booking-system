@@ -12,7 +12,7 @@ LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
 
 # --- 2. รายชื่อ Admin 5 คน (ให้ใส่ User ID ของแต่ละคน) ---
 ADMIN_IDS = [
-    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx1",
+    "Ub5588daf37957fe7625abce16bd8bb8e",
     "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx2",
     "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx3",
     "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4",
@@ -71,6 +71,7 @@ def handle_message(event):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
