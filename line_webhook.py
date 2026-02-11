@@ -7,8 +7,8 @@ import os
 app = FastAPI()
 
 # --- 1. ตั้งค่า TOKEN (ใส่รหัสของคุณ) ---
-LINE_ACCESS_TOKEN = "ใส่ Access Token ของคุณ"
-LINE_SECRET = "ใส่ Channel Secret ของคุณ"
+LINE_ACCESS_TOKEN = "BMEKLnhpRvRzArHJsnTzulIyqefXrwYo6QDBroRLMbGcV16/Ca+8eI5v5H5AfgTEOCwMD47HldTFuCBve9JRa1uAlAuq24sK2Iv/C5T/+p8Qrf3rxQKbOiaiH4CDQWf64AYuUbzSiuiPYdnrSWhm0gdB04t89/1O/w1cDnyilFU="
+LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
 
 # --- 2. รายชื่อ Admin 5 คน (ให้ใส่ User ID ของแต่ละคน) ---
 ADMIN_IDS = [
@@ -70,3 +70,4 @@ def handle_message(event):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
