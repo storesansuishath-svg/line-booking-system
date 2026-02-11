@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from supabase import create_client
 from datetime import datetime, timedelta
+import requests
 
 # --- 1. การเชื่อมต่อ Supabase ---
 SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co" 
@@ -173,4 +174,5 @@ elif choice == "📅 ตารางงาน (Real-time)":
             
 
             st.dataframe(df_display, use_container_width=True)
+
 
