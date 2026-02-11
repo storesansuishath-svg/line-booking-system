@@ -25,6 +25,13 @@ st.sidebar.markdown("---")
 
 auto_delete_old_bookings()
 st.title("ระบบจองรถยนต์และห้องประชุม Online")
+if st.sidebar.button("🧪 ทดสอบส่งแจ้งเตือน"):
+    test_url = "https://line-booking-system.onrender.com/notify"
+    try:
+        r = requests.post(test_url, json={"resource": "ทดสอบ", "name": "Admin", "date": "12/02/2026"}, timeout=5)
+        st.sidebar.write(f"ผลลัพธ์: {r.status_code}")
+    except Exception as e:
+        st.sidebar.error(f"พังที่หน้าเว็บ: {e}")
 
 menu = ["📝 จองใหม่", "📅 ตารางงาน (Real-time)", "🔑 Admin (อนุมัติ)"]
 choice = st.sidebar.selectbox("เมนู", menu)
@@ -124,3 +131,4 @@ elif choice == "📅 ตารางงาน (Real-time)":
         df['start_time'] = pd.to_datetime(df['start_time']).dt.strftime('%d/%m/%Y %H:%M')
         df['end_time'] = pd.to_datetime(df['end_time']).dt.strftime('%d/%m/%Y %H:%M')
         st.dataframe(df[['resource', 'start_time', 'end_time', 'requester', 'purpose', 'destination']], use_container_width=True)
+
