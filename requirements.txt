@@ -4,3 +4,4 @@ line-bot-sdk==3.5.0
 supabase==1.2.0
 python-multipart==0.0.6
 requests
+
