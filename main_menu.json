@@ -1,0 +1,67 @@
+{
+  "type": "bubble",
+  "header": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "ระบบจองรถและห้องประชุม",
+        "weight": "bold",
+        "size": "lg",
+        "color": "#FFFFFF"
+      }
+    ],
+    "backgroundColor": "#000000"
+  },
+  "hero": {
+    "type": "image",
+    "url": "https://images.unsplash.com/photo-1503387762-592dee58c460?q=80&w=1000&auto=format&fit=crop",
+    "size": "full",
+    "aspectRatio": "20:13",
+    "aspectMode": "cover"
+  },
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "spacing": "md",
+    "contents": [
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "spacing": "md",
+        "contents": [
+          {
+            "type": "button",
+            "style": "primary",
+            "color": "#1DB446",
+            "action": { "type": "message", "label": "1. จอง", "text": "จอง" }
+          },
+          {
+            "type": "button",
+            "style": "primary",
+            "color": "#1DB446",
+            "action": { "type": "message", "label": "2. ดูตาราง", "text": "ดู" }
+          }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "spacing": "md",
+        "contents": [
+          {
+            "type": "button",
+            "style": "secondary",
+            "action": { "type": "message", "label": "3. หน้าหลัก", "text": "หน้าหลัก" }
+          },
+          {
+            "type": "button",
+            "style": "secondary",
+            "action": { "type": "message", "label": "4. อนุมัติ", "text": "อนุมัติ/ไม่อนุมัติ" }
+          }
+        ]
+      }
+    ]
+  }
+}
