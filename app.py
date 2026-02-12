@@ -166,6 +166,7 @@ def handle_postback(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
 
 # --- 8. รับ Notify จาก Streamlit ---
+render_url = "https://line-booking-system.onrender.com/notify"
 @app.post("/notify")
 async def notify_booking(request: Request):
     data = await request.json()
@@ -176,3 +177,4 @@ async def notify_booking(request: Request):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
