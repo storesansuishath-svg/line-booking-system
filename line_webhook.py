@@ -1,43 +1,113 @@
 from fastapi import FastAPI, Request
 from linebot import LineBotApi, WebhookHandler
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, FlexSendMessage
+from linebot.models import (
+    MessageEvent, TextMessage, TextSendMessage, FlexSendMessage,
+    QuickReply, QuickReplyButton, MessageAction
+)
+from supabase import create_client
+from datetime import datetime
 import json
 import os
 
 app = FastAPI()
 
-# --- 1. ตั้งค่า TOKEN ---
-# (ตรวจสอบให้แน่ใจว่ารหัสเหล่านี้ตรงกับใน LINE Developers ของคุณ)
+# --- 1. ตั้งค่า LINE & SUPABASE ---
 LINE_ACCESS_TOKEN = "ILJVHrD24hZCe/stNR6wKxglGerAEtefHwB0HlDzq2vx5zc+hx0JoS2fDQe6BFzsOCwMD47HldTFuCBve9JRa1uAlAuq24sK2Iv/C5T/+p8Vkh1ppr3MKOb0ghP9MGO1kVj4UmgSzdyrI8P0vKHprgdB04t89/1O/w1cDnyilFU="
 LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
 
-# --- 2. รายชื่อ Admin ---
-# ใส่ User ID (U...) ที่ได้จาก Logs ของแอดมินแต่ละคน
-ADMIN_IDS = [
-    "Ub5588daf37957fe7625abce16bd8bb8e",
-    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx2",
-    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx3",
-    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx4",
-    "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx5"
-]
+SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co" 
+SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 3. ฟังก์ชันส่ง Flex Menu (เมนู 4 ช่อง) ---
-def send_flex_menu(reply_token):
-    try:
-        with open("main_menu.json", "r", encoding="utf-8") as f:
-            flex_content = json.load(f)
-        line_bot_api.reply_message(
-            reply_token,
-            FlexSendMessage(alt_text="เมนูหลักระบบจอง", contents=flex_content)
-        )
-    except Exception as e:
-        print(f"Error loading menu: {e}")
-        line_bot_api.reply_message(reply_token, TextSendMessage(text="ขออภัย ไม่สามารถโหลดเมนูได้ในขณะนี้"))
+# --- 2. รายชื่อ Admin ---
+ADMIN_IDS = [
+    "Ub5588daf37957fe7625abce16bd8bb8e",
+    # เพิ่ม ID อื่นๆ ที่นี่
+]
 
-# --- 4. เส้นทางรับข้อมูลจาก LINE (Webhook) ---
+# --- 3. ฟังก์ชันสร้างตาราง Flex Message (ให้เหมือนหน้าเว็บ) ---
+def create_schedule_flex(title, data_rows, color="#0D47A1"):
+    """
+    สร้าง Flex Message แบบตาราง
+    data_rows คือ list ของ dict ที่มี keys: resource, start, end, name, purpose, dest
+    """
+    if not data_rows:
+        return TextSendMessage(text=f"✅ ไม่มีรายการจองสำหรับ {title} ในขณะนี้ครับ")
+
+    # ส่วนหัวตาราง (Header)
+    contents = [
+        {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {"type": "text", "text": title, "weight": "bold", "size": "xl", "color": color},
+                {"type": "text", "text": "รายการจองที่อนุมัติแล้ว (Real-time)", "size": "xs", "color": "#aaaaaa"}
+            ]
+        },
+        {"type": "separator", "margin": "md"}
+    ]
+
+    # วนลูปสร้างแถวข้อมูล (Rows)
+    for i, row in enumerate(data_rows):
+        # จัดรูปแบบเวลาให้อ่านง่าย
+        try:
+            t_start = datetime.fromisoformat(row['start_time']).strftime('%H:%M')
+            t_end = datetime.fromisoformat(row['end_time']).strftime('%H:%M')
+            date_str = datetime.fromisoformat(row['start_time']).strftime('%d/%m')
+        except:
+            t_start, t_end, date_str = "-", "-", "-"
+
+        row_box = {
+            "type": "box",
+            "layout": "vertical",
+            "margin": "md",
+            "contents": [
+                # บรรทัด 1: ชื่อทรัพยากร + เวลา (เน้นตัวหนา)
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {"type": "text", "text": f"{i+1}. {row['resource']}", "weight": "bold", "size": "sm", "flex": 2, "color": "#333333"},
+                        {"type": "text", "text": f"📅 {date_str} | ⏰ {t_start}-{t_end}", "size": "xs", "align": "end", "flex": 1, "color": color}
+                    ]
+                },
+                # บรรทัด 2: ผู้จอง + ปลายทาง
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {"type": "text", "text": f"👤 {row['requester']}", "size": "xs", "color": "#666666", "flex": 1},
+                        {"type": "text", "text": f"📍 {row['destination']}", "size": "xs", "color": "#666666", "align": "end", "flex": 1}
+                    ]
+                },
+                # บรรทัด 3: วัตถุประสงค์ (ตัวเล็ก)
+                {
+                    "type": "text",
+                    "text": f"📝 {row['purpose']}",
+                    "size": "xxs",
+                    "color": "#999999",
+                    "wrap": True
+                }
+            ]
+        }
+        contents.append(row_box)
+        contents.append({"type": "separator", "margin": "sm"})
+
+    # ประกอบร่าง Flex Bubble
+    bubble = {
+        "type": "bubble",
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": contents
+        }
+    }
+    return FlexSendMessage(alt_text=f"ตารางงาน {title}", contents=bubble)
+
+# --- 4. ฟังก์ชันจัดการ Webhook ---
 @app.post("/callback")
 async def callback(request: Request):
     signature = request.headers.get('X-Line-Signature')
@@ -48,54 +118,89 @@ async def callback(request: Request):
         print(f"Webhook Error: {e}")
     return 'OK'
 
-# --- 5. จัดการข้อความที่ส่งมาจากผู้ใช้ ---
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    # พิมพ์ข้อมูล Event ลง Logs เพื่อหา User ID
-    print(f"User Event: {event}")
-    
     text = event.message.text.strip()
     user_id = event.source.user_id
+    
+    # เมนูเลือกดูข้อมูล (Quick Reply)
+    quick_reply_menu = QuickReply(items=[
+        QuickReplyButton(action=MessageAction(label="🚗 ตารางรถ", text="ดูตารางรถ")),
+        QuickReplyButton(action=MessageAction(label="🏢 ตารางห้อง", text="ดูตารางห้อง")),
+        QuickReplyButton(action=MessageAction(label="⏳ รออนุมัติ", text="ดูรายการรออนุมัติ")),
+        QuickReplyButton(action=MessageAction(label="📝 จองใหม่", text="จอง"))
+    ])
 
-    # คำสั่ง: หน้าหลัก / ทัก / สวัสดี
-    if text in ["หน้าหลัก", "ทัก", "สวัสดี"]:
-        send_flex_menu(event.reply_token)
+    # 1. กรณีพิมพ์ "ดู" หรือคำทักทาย -> แสดงปุ่มให้เลือก
+    if text in ["ดู", "เมนู", "ตารางงาน", "สวัสดี", "ทัก"]:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(
+                text="ต้องการดูข้อมูลส่วนไหนครับ? เลือกจากปุ่มด้านล่างได้เลย 👇",
+                quick_reply=quick_reply_menu
+            )
+        )
 
-    # คำสั่ง: จอง (ส่งลิงก์ไปหน้าเว็บ Streamlit)
+    # 2. กรณีเลือก "ดูตารางรถ"
+    elif text == "ดูตารางรถ":
+        now = datetime.now().isoformat()
+        # ดึงข้อมูลจาก Supabase เหมือนหน้าเว็บ
+        car_list = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG ขับเอง"]
+        res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).in_("resource", car_list).order("start_time").execute()
+        
+        flex_msg = create_schedule_flex("📅 ตารางการใช้รถ", res.data, color="#1E88E5") # สีฟ้า
+        line_bot_api.reply_message(event.reply_token, flex_msg)
+
+    # 3. กรณีเลือก "ดูตารางห้อง"
+    elif text == "ดูตารางห้อง":
+        now = datetime.now().isoformat()
+        room_list = ["ห้องชั้น 1 (ห้องใหญ่)", "ห้องชั้น 2", "ห้อง VIP", "ห้องชั้นลอย", "ห้อง Production"]
+        res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).in_("resource", room_list).order("start_time").execute()
+        
+        flex_msg = create_schedule_flex("📅 ตารางห้องประชุม", res.data, color="#43A047") # สีเขียว
+        line_bot_api.reply_message(event.reply_token, flex_msg)
+
+    # 4. กรณีเลือก "ดูรายการรออนุมัติ" (สำหรับ Admin)
+    elif text == "ดูรายการรออนุมัติ":
+        if user_id in ADMIN_IDS:
+            res = supabase.table("bookings").select("*").eq("status", "Pending").execute()
+            if not res.data:
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ ไม่มีรายการรออนุมัติครับ", quick_reply=quick_reply_menu))
+            else:
+                # สร้าง List ข้อความ Text ง่ายๆ สำหรับ Admin (หรือจะทำ Flex ก็ได้)
+                msg = "รายการรออนุมัติ:\n"
+                for item in res.data:
+                    msg += f"🆔 {item['id']}: {item['resource']} โดย {item['requester']}\n"
+                msg += "\n⚠️ ไปที่หน้าเว็บเพื่อกดอนุมัติครับ"
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
+        else:
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 ส่วนนี้สำหรับ Admin เท่านั้นครับ", quick_reply=quick_reply_menu))
+
+    # 5. กรณีเลือก "จอง"
     elif text == "จอง":
         url = "https://office-booking-system-hll8ub77ixfgmj2s4slbu4.streamlit.app/"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"📝 กดเพื่อทำการจองได้เลยครับ:\n{url}"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"📝 กดลิงก์เพื่อทำการจอง:\n{url}", quick_reply=quick_reply_menu))
 
-    # คำสั่ง: ดู
-    elif text == "ดู":
-        reply = "🔍 เลือกรายการที่ต้องการดู:\n1. ตารางรถ\n2. ตารางห้องประชุม\n3. รายการอนุมัติ/ไม่อนุมัติ"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=reply))
+    # กรณีอื่นๆ
+    else:
+        # ถ้าพิมพ์มาไม่ตรงคำสั่ง ให้ขึ้นเมนูช่วยเหลือ
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="ผมไม่เข้าใจคำสั่งครับ ลองเลือกเมนูด้านล่างนะ", quick_reply=quick_reply_menu))
 
-    # คำสั่ง: อนุมัติ/ไม่อนุมัติ (เช็คสิทธิ์แอดมิน)
-    elif text == "อนุมัติ/ไม่อนุมัติ":
-        if user_id in ADMIN_IDS:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🔑 เข้าสู่ระบบแอดมิน: กำลังดึงรายการที่รออนุมัติ..."))
-        else:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="⚠️ เฉพาะแอดมิน 5 ท่านที่ได้รับอนุญาตเท่านั้นครับ"))
-
-# --- 6. เส้นทางรับแจ้งเตือนจากหน้าเว็บ Streamlit (/notify) ---
+# --- ส่วนรับ Notification (คงเดิม) ---
 @app.post("/notify")
 async def notify_booking(request: Request):
     try:
         data = await request.json()
-        resource = data.get("resource", "ไม่ระบุ")
-        name = data.get("name", "ไม่ระบุ")
-        date = data.get("date", "ไม่ระบุ")
-
-        # ข้อความที่จะส่งเข้า LINE
-        msg = f"🔔 มีรายการจองใหม่!\n\n🔹 รายการ: {resource}\n👤 ผู้จอง: {name}\n📅 เวลาเริ่ม: {date}\n\n⚠️ กรุณาเข้าหน้าเว็บ Admin เพื่อตรวจสอบและอนุมัติครับ"
-
-        # ส่งแบบ Broadcast หาทุกคนที่เคยทักบอท
+        resource = data.get("resource", "-")
+        name = data.get("name", "-")
+        date = data.get("date", "-")
+        
+        msg = f"🔔 มีรายการจองใหม่!\n\n🔹 {resource}\n👤 {name}\n📅 {date}\n\n⚠️ Admin โปรดตรวจสอบ"
         line_bot_api.broadcast(TextSendMessage(text=msg))
         return {"status": "success"}
     except Exception as e:
-        print(f"Error in /notify: {e}")
-        return {"status": "error", "message": str(e)}
+        print(f"Notify Error: {e}")
+        return {"status": "error"}
 
 if __name__ == "__main__":
     import uvicorn
