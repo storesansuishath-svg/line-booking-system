@@ -4,3 +4,4 @@ line-bot-sdk==2.4.2
 supabase
 python-multipart
 requests
+aiohttp>=3.9.0
