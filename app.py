@@ -172,3 +172,7 @@ async def notify_booking(request: Request):
     # ส่งเข้ากลุ่มโดย Broadcast (หรือเปลี่ยนเป็น push_message หากทราบ Group ID)
     line_bot_api.broadcast(create_approval_flex(data.get("id"), data))
     return {"status": "success"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
