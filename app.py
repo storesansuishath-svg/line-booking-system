@@ -5,11 +5,11 @@ from datetime import datetime, timedelta
 import requests
 
 # --- 1. การเชื่อมต่อ Supabase ---
-SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
+SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co" 
 SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 2. ฟังก์ชันลบข้อมูลอัตโนมัติ ---
+# --- 2. ฟังก์ชันลบข้อมูลอัตโนมัติ (จบงานเกิน 24 ชม.) ---
 def auto_delete_old_bookings():
     threshold_time = (datetime.now() - timedelta(hours=24)).isoformat()
     try:
@@ -17,21 +17,20 @@ def auto_delete_old_bookings():
     except:
         pass
 
-# --- 3. ตั้งค่าหน้าจอ ---
+# --- 3. ตั้งค่าหน้าจอและ Logo บริษัท ---
 st.set_page_config(page_title="ระบบจองรถ & ห้องประชุม", layout="wide")
+
+# ลิงก์โลโก้แบบ Direct Link จาก Google Drive ของคุณ
 LOGO_URL = "https://lh3.googleusercontent.com/d/1zCjSjSbCO-mbsaGoDI6g0G-bfmyVfqFV"
+
+# แสดง Logo ใน Sidebar
 st.sidebar.image(LOGO_URL, use_container_width=True)
 st.sidebar.markdown("---")
 
+# เรียกฟังก์ชันล้างข้อมูลทันที
 auto_delete_old_bookings()
+
 st.title("ระบบจองรถยนต์และห้องประชุม Online")
-if st.sidebar.button("🧪 ทดสอบส่งแจ้งเตือน"):
-    test_url = "https://line-booking-system.onrender.com/notify"
-    try:
-        r = requests.post(test_url, json={"resource": "ทดสอบ", "name": "Admin", "date": "12/02/2026"}, timeout=5)
-        st.sidebar.write(f"ผลลัพธ์: {r.status_code}")
-    except Exception as e:
-        st.sidebar.error(f"พังที่หน้าเว็บ: {e}")
 
 menu = ["📝 จองใหม่", "📅 ตารางงาน (Real-time)", "🔑 Admin (อนุมัติ)"]
 choice = st.sidebar.selectbox("เมนู", menu)
@@ -62,7 +61,6 @@ if choice == "📝 จองใหม่":
         elif t_start >= t_end:
             st.error("❌ เวลาเริ่มต้นต้องก่อนเวลาสิ้นสุด")
         else:
-            # ตรวจสอบการจองซ้ำ
             check_res = supabase.table("bookings").select("*").eq("resource", res).eq("status", "Approved").execute()
             df_check = pd.DataFrame(check_res.data)
             is_overlap = False
@@ -75,14 +73,13 @@ if choice == "📝 จองใหม่":
             if is_overlap:
                 st.error(f"❌ ไม่ว่าง: {res} ถูกจองไปแล้วในช่วงเวลานี้")
             else:
-                # 1. บันทึกข้อมูลลง Supabase
                 data = {"resource": res, "requester": name, "phone": phone, "dept": dept, 
                         "start_time": t_start.isoformat(), "end_time": t_end.isoformat(), 
                         "purpose": reason, "destination": destination, "status": "Pending"}
                 supabase.table("bookings").insert(data).execute()
                 st.success("✅ ส่งคำขอเรียบร้อยแล้ว!")
 
-                # ... (โค้ดก่อนหน้า) ...
+                # --- ส่วนส่งแจ้งเตือน (กลับมาใช้แบบตั้งต้น) ---
                 try:
                     render_url = "https://line-booking-system.onrender.com/notify"
                     payload = {
@@ -90,30 +87,21 @@ if choice == "📝 จองใหม่":
                         "name": name,
                         "date": t_start.strftime("%d/%m/%Y %H:%M")
                     }
-                    
-                    # ⚠️ เปลี่ยน timeout เป็น 60 วินาที เผื่อเซิร์ฟเวอร์ตื่นช้า
-                    resp = requests.post(render_url, json=payload, timeout=60)
-                    
-                    # โชว์สถานะบนหน้าเว็บให้เห็นชัดๆ
-                    if resp.status_code == 200:
-                        st.success("📨 ส่งแจ้งเตือนเข้า LINE สำเร็จ!")
-                    else:
-                        st.warning(f"⚠️ บอทได้รับข้อมูลแต่ตอบกลับ Error Code: {resp.status_code}")
-                        
+                    requests.post(render_url, json=payload, timeout=5)
                 except Exception as e:
-                    # ถ้า Streamlit ยิงไปไม่ถึงจริงๆ จะโชว์สาเหตุตรงนี้
-                    st.error(f"❌ แจ้งเตือนล้มเหลว (ส่งข้อมูลไม่สำเร็จ): {e}")
+                    st.error(f"แจ้งเตือนไม่ทำงาน: {e}")
 
-# --- หน้า Admin และ ตารางงาน (ส่วนที่เหลือคงเดิม) ---
+# --- หน้า Admin ---
 elif choice == "🔑 Admin (อนุมัติ)":
     st.subheader("ระบบจัดการสำหรับ Admin")
     admin_pw = st.text_input("รหัสผ่าน Admin", type="password")
     if admin_pw == "1234":
-        res_data = supabase.table("bookings").select("*").eq("status", "Pending").execute()
-        df_pending = pd.DataFrame(res_data.data)
+        res = supabase.table("bookings").select("*").eq("status", "Pending").execute()
+        df_pending = pd.DataFrame(res.data)
         if df_pending.empty:
             st.info("ไม่มีรายการรออนุมัติ")
         else:
+            st.write("รายการรอการตัดสินใจ:")
             st.dataframe(df_pending[['id', 'resource', 'requester', 'dept', 'start_time', 'end_time']], use_container_width=True)
             target_id = st.number_input("ใส่ ID ที่ต้องการจัดการ", step=1, min_value=1)
             c1, c2 = st.columns(2)
@@ -124,16 +112,46 @@ elif choice == "🔑 Admin (อนุมัติ)":
                 supabase.table("bookings").update({"status": "Rejected"}).eq("id", target_id).execute()
                 st.rerun()
 
+# --- หน้าตารางงาน (Real-time) ---
 elif choice == "📅 ตารางงาน (Real-time)":
     st.subheader("📅 ตารางงานปัจจุบันและล่วงหน้า")
+    
+    view_cat = st.radio("เลือกประเภทที่จะแสดง", ["ทั้งหมด", "รถยนต์", "ห้องประชุม"], horizontal=True)
+    
     now = datetime.now().isoformat()
-    res_data = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).order("start_time").execute()
-    df = pd.DataFrame(res_data.data)
+    res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).order("start_time").execute()
+    df = pd.DataFrame(res.data)
+    
     if df.empty:
         st.info("ขณะนี้ไม่มีรายการจอง")
     else:
-        df['start_time'] = pd.to_datetime(df['start_time']).dt.strftime('%d/%m/%Y %H:%M')
-        df['end_time'] = pd.to_datetime(df['end_time']).dt.strftime('%d/%m/%Y %H:%M')
-        st.dataframe(df[['resource', 'start_time', 'end_time', 'requester', 'purpose', 'destination']], use_container_width=True)
+        if view_cat == "รถยนต์":
+            car_list = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG ขับเอง"]
+            df = df[df['resource'].isin(car_list)]
+        elif view_cat == "ห้องประชุม":
+            room_list = ["ห้องชั้น 1 (ห้องใหญ่)", "ห้องชั้น 2", "ห้อง VIP", "ห้องชั้นลอย", "ห้อง Production"]
+            df = df[df['resource'].isin(room_list)]
 
+        if df.empty:
+            st.info(f"ไม่มีรายการจองในหมวด {view_cat}")
+        else:
+            df = df.reset_index(drop=True)
+            df.index += 1
+            df.insert(0, 'ลำดับ/No.', df.index)
 
+            df['start_time'] = pd.to_datetime(df['start_time']).dt.strftime('%d/%m/%Y %H:%M')
+            df['end_time'] = pd.to_datetime(df['end_time']).dt.strftime('%d/%m/%Y %H:%M')
+            
+            df_display = df[['ลำดับ/No.', 'resource', 'start_time', 'end_time', 'requester', 'purpose', 'destination']]
+            
+            df_display.columns = [
+                'ลำดับ / No.', 
+                'รายการ / Resource', 
+                'เวลาเริ่ม / Start Time', 
+                'เวลาสิ้นสุด / End Time', 
+                'ผู้จอง / Name', 
+                'วัตถุประสงค์ / Purpose', 
+                'ปลายทาง / Destination'
+            ]
+            
+            st.dataframe(df_display, use_container_width=True)
