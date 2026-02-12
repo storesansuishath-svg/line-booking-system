@@ -55,12 +55,13 @@ if choice == "📝 จองใหม่":
         t_end = st.datetime_input("เวลาสิ้นสุด", datetime.now())
         reason = st.text_area("วัตถุประสงค์การใช้งาน")
 
-    if st.button("ยืนยันการส่งคำขอจอง"):
+   if st.button("ยืนยันการส่งคำขอจอง"):
         if not name or not phone or not reason or not dept:
             st.warning("⚠️ กรุณากรอกข้อมูลให้ครบถ้วน")
         elif t_start >= t_end:
             st.error("❌ เวลาเริ่มต้นต้องก่อนเวลาสิ้นสุด")
         else:
+            # ตรวจสอบการชนกันของเวลา (Overlap Check)
             check_res = supabase.table("bookings").select("*").eq("resource", res).eq("status", "Approved").execute()
             df_check = pd.DataFrame(check_res.data)
             is_overlap = False
@@ -73,24 +74,36 @@ if choice == "📝 จองใหม่":
             if is_overlap:
                 st.error(f"❌ ไม่ว่าง: {res} ถูกจองไปแล้วในช่วงเวลานี้")
             else:
-                data = {"resource": res, "requester": name, "phone": phone, "dept": dept, 
-                        "start_time": t_start.isoformat(), "end_time": t_end.isoformat(), 
-                        "purpose": reason, "destination": destination, "status": "Pending"}
-                supabase.table("bookings").insert(data).execute()
-                st.success("✅ ส่งคำขอเรียบร้อยแล้ว!")
+                # เตรียมข้อมูลสำหรับบันทึก
+                data = {
+                    "resource": res, "requester": name, "phone": phone, "dept": dept, 
+                    "start_time": t_start.isoformat(), "end_time": t_end.isoformat(), 
+                    "purpose": reason, "destination": destination, "status": "Pending"
+                }
+                
+                # --- จุดสำคัญ: บันทึกและดึง ID กลับมา ---
+                response = supabase.table("bookings").insert(data).execute()
+                
+                if response.data:
+                    booking_id = response.data[0]['id'] # ดึง ID ที่ได้จาก Database
+                    st.success("✅ ส่งคำขอเรียบร้อยแล้ว!")
 
-                # --- ส่วนส่งแจ้งเตือน (กลับมาใช้แบบตั้งต้น) ---
-                try:
-                    render_url = "https://line-booking-system.onrender.com/notify"
-                    payload = {
-                        "resource": res,
-                        "name": name,
-                        "date": t_start.strftime("%d/%m/%Y %H:%M")
-                    }
-                    requests.post(render_url, json=payload, timeout=5)
-                except Exception as e:
-                    st.error(f"แจ้งเตือนไม่ทำงาน: {e}")
-
+                    # --- ส่งแจ้งเตือนไปยัง LINE Bot ---
+                    try:
+                        # *อย่าลืมเปลี่ยน URL ตรงนี้เป็น URL ของ Bot คุณ*
+                        render_url = "https://ชื่อ-app-ของคุณ.onrender.com/notify" 
+                        payload = {
+                            "id": booking_id,  # ส่ง ID ไปด้วย เพื่อให้ปุ่มกดทำงานได้
+                            "resource": res,
+                            "name": name,
+                            "dept": dept,
+                            "date": t_start.strftime("%d/%m/%Y %H:%M"),
+                            "end_date": t_end.strftime("%H:%M"),
+                            "purpose": reason
+                        }
+                        requests.post(render_url, json=payload, timeout=5)
+                    except Exception as e:
+                        st.error(f"แจ้งเตือนไม่ทำงาน: {e}")
 # --- หน้า Admin ---
 elif choice == "🔑 Admin (อนุมัติ)":
     st.subheader("ระบบจัดการสำหรับ Admin")
@@ -155,3 +168,4 @@ elif choice == "📅 ตารางงาน (Real-time)":
             ]
             
             st.dataframe(df_display, use_container_width=True)
+
