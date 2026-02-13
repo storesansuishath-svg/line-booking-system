@@ -150,40 +150,49 @@ def handle_message(event):
 # --- 7. จัดการกดปุ่ม (Postback) ---
 @handler.add(PostbackEvent)
 def handle_postback(event):
+    # ตรวจสอบสิทธิ์ Admin
     if event.source.user_id not in ADMIN_IDS:
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 คุณไม่มีสิทธิ์อนุมัติครับ"))
         return
 
+    # แกะข้อมูลจากปุ่ม
     data = dict(parse_qsl(event.postback.data))
     action = data.get('action')
     booking_id = data.get('id')
     user_name = data.get('user')
 
     if action and booking_id:
+        # 1. อัปเดตสถานะใน Supabase ทันที
         status = "Approved" if action == "approve" else "Rejected"
-        # 1. อัปเดตสถานะใน Supabase
         supabase.table("bookings").update({"status": status}).eq("id", booking_id).execute()
         
-        # 2. สร้างข้อความยืนยัน
-        msg = f"✅ อนุมัติคุณ {user_name} เรียบร้อยแล้ว!" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
+        # 2. เตรียมข้อความยืนยันตัวหนังสือ
+        msg_text = f"✅ อนุมัติคุณ {user_name} เรียบร้อยแล้ว" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
         
-        # 3. ถ้าเป็นการอนุมัติ ให้ดึงตารางล่าสุดมาแสดงต่อท้ายทันที
+        # สร้างรายการข้อความที่จะส่ง (List of Messages)
+        reply_content = [TextSendMessage(text=msg_text)]
+
+        # 3. ถ้ากด 'อนุมัติ' ให้ดึงตารางมาแถมไปด้วย
         if action == "approve":
-            now = datetime.now().isoformat()
-            # ดึงข้อมูลทั้งหมดที่อนุมัติแล้วและยังไม่จบงาน
-            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).order("start_time").execute()
-            
-            # ส่งทั้งข้อความยืนยัน และ ตารางอัปเดตใหม่ไปพร้อมกัน
-            line_bot_api.reply_message(
-                event.reply_token, 
-                [
-                    TextSendMessage(text=msg),
-                    create_schedule_flex("📅 ตารางงานอัปเดตล่าสุด", res.data, "#2E7D32")
-                ]
-            )
-        else:
-            # ถ้าเป็นการปฏิเสธ ส่งแค่ข้อความยืนยันพอครับ
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
+            try:
+                # ดึงข้อมูลใหม่ล่าสุดหลังอัปเดต
+                now_iso = datetime.now().isoformat()
+                res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).order("start_time").execute()
+                
+                if res.data:
+                    # สร้าง Flex Message ตารางงาน
+                    table_flex = create_schedule_flex("📅 ตารางงานอัปเดตล่าสุด", res.data, "#2E7D32")
+                    reply_content.append(table_flex)
+            except Exception as e:
+                print(f"Error fetching schedule: {e}")
+
+        # 4. ส่งคำตอบกลับ (Reply) ทีเดียวทั้งชุด
+        try:
+            line_bot_api.reply_message(event.reply_token, reply_content)
+        except Exception as e:
+            print(f"Reply Error: {e}")
+            # ถ้า Reply ไม่ได้ ให้ลองส่งแบบ Push (ป้องกันกรณี Token หมดอายุ)
+            line_bot_api.push_message(event.source.user_id, reply_content)
 
 # --- 8. รับ Notify จาก Streamlit ---
 
@@ -197,6 +206,7 @@ async def notify_booking(request: Request):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
