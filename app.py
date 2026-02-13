@@ -161,9 +161,29 @@ def handle_postback(event):
 
     if action and booking_id:
         status = "Approved" if action == "approve" else "Rejected"
+        # 1. อัปเดตสถานะใน Supabase
         supabase.table("bookings").update({"status": status}).eq("id", booking_id).execute()
-        msg = f"✅ อนุมัติคุณ {user_name} แล้ว" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
+        
+        # 2. สร้างข้อความยืนยัน
+        msg = f"✅ อนุมัติคุณ {user_name} เรียบร้อยแล้ว!" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
+        
+        # 3. ถ้าเป็นการอนุมัติ ให้ดึงตารางล่าสุดมาแสดงต่อท้ายทันที
+        if action == "approve":
+            now = datetime.now().isoformat()
+            # ดึงข้อมูลทั้งหมดที่อนุมัติแล้วและยังไม่จบงาน
+            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).order("start_time").execute()
+            
+            # ส่งทั้งข้อความยืนยัน และ ตารางอัปเดตใหม่ไปพร้อมกัน
+            line_bot_api.reply_message(
+                event.reply_token, 
+                [
+                    TextSendMessage(text=msg),
+                    create_schedule_flex("📅 ตารางงานอัปเดตล่าสุด", res.data, "#2E7D32")
+                ]
+            )
+        else:
+            # ถ้าเป็นการปฏิเสธ ส่งแค่ข้อความยืนยันพอครับ
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg))
 
 # --- 8. รับ Notify จาก Streamlit ---
 
@@ -177,6 +197,7 @@ async def notify_booking(request: Request):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
