@@ -29,7 +29,7 @@ ADMIN_IDS = [
     # เพิ่ม ID Admin คนอื่นได้ที่นี่
 ]
 
-# --- 3. ฟังก์ชันสร้างตารางสวยๆ (Flex Message) ---
+# --- 3. ฟังก์ชันสร้างตารางสวยๆ (Flex Message) - แก้ไขเพิ่ม "วัตถุประสงค์" ---
 def create_schedule_flex(title, data_rows, color="#0D47A1"):
     if not data_rows:
         return TextSendMessage(text=f"✅ ไม่มีรายการจองสำหรับ {title} ในขณะนี้ครับ")
@@ -52,14 +52,25 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
             "contents": [
                 {"type": "text", "text": f"{i+1}. {row['resource']}", "weight": "bold", "color": "#333333"},
                 {"type": "text", "text": f"📅 {date_str} | ⏰ {t_start}-{t_end}", "size": "sm", "color": color},
-                {"type": "text", "text": f"👤 {row['requester']} ({row['dept']})", "size": "xs", "color": "#666666"},
-                {"type": "text", "text": f"📍 {row['destination']}", "size": "xs", "color": "#666666"}
+                {"type": "text", "text": f"👤 {row['requester']} ({row.get('dept', '-')})", "size": "xs", "color": "#666666"},
+                {"type": "text", "text": f"📍 {row.get('destination', '-')}", "size": "xs", "color": "#666666"},
+                # --- ส่วนที่เพิ่มใหม่: วัตถุประสงค์ ---
+                {
+                    "type": "text", 
+                    "text": f"📝 {row.get('purpose', '-')}", 
+                    "size": "xs", 
+                    "color": "#666666", 
+                    "wrap": True, 
+                    "margin": "xs"
+                }
             ]
         })
         contents.append({"type": "separator", "margin": "sm"})
 
-    return FlexSendMessage(alt_text=f"ตาราง {title}", contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}})
-
+    return FlexSendMessage(
+        alt_text=f"ตาราง {title}", 
+        contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
+    )
 # --- 4. ฟังก์ชันสร้างปุ่มอนุมัติ (Flex Message) ---
 def create_approval_flex(booking_id, data):
     flex_content = {
@@ -206,6 +217,7 @@ async def notify_booking(request: Request):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
