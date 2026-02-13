@@ -205,18 +205,35 @@ def handle_postback(event):
             # ถ้า Reply ไม่ได้ ให้ลองส่งแบบ Push (ป้องกันกรณี Token หมดอายุ)
             line_bot_api.push_message(event.source.user_id, reply_content)
 
-# --- 8. รับ Notify จาก Streamlit ---
+# --- 8. รับ Notify จาก Streamlit (ปรับปรุงให้รองรับการส่งตารางล่าสุด) ---
 
 @app.post("/notify")
 async def notify_booking(request: Request):
     data = await request.json()
-    # ส่งเข้ากลุ่มโดย Broadcast (หรือเปลี่ยนเป็น push_message หากทราบ Group ID)
-    line_bot_api.broadcast(create_approval_flex(data.get("id"), data))
+    mode = data.get("mode")
+    
+    # 1. กรณีที่มีการเปลี่ยนแปลงข้อมูล (อนุมัติ/แก้ไข/ลบ) และต้องการส่งตารางสรุป
+    if mode == "all_schedule":
+        try:
+            now = datetime.now().isoformat()
+            # ดึงข้อมูลที่ Approved แล้วทั้งหมดเพื่อทำตารางล่าสุด
+            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).order("start_time").execute()
+            
+            # ส่งข้อความ "นี่คือตารางงานล่าสุด" และ Flex Message เข้ากลุ่ม (broadcast)
+            line_bot_api.broadcast([
+                TextSendMessage(text="📢 นี่คือตารางงานล่าสุด"),
+                create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
+            ])
+        except Exception as e:
+            print(f"Error sending full schedule: {e}")
+
+    # 2. กรณีมีการจองเข้ามาใหม่ (แจ้งเตือนให้ Admin อนุมัติ)
+    else:
+        booking_id = data.get("id")
+        line_bot_api.broadcast(create_approval_flex(booking_id, data))
+        
     return {"status": "success"}
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
 
