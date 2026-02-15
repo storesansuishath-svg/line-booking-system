@@ -8,6 +8,7 @@ from supabase import create_client
 from datetime import datetime
 from urllib.parse import parse_qsl
 import os
+import uvicorn
 
 app = FastAPI()
 
@@ -17,18 +18,16 @@ LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
 SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
 SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 
-# *** นำ ID กลุ่มที่ได้จากบอท (ขึ้นต้นด้วย C...) มาใส่ตรงนี้หลังจากเช็คได้แล้ว ***
+# ID กลุ่มที่คุณระบุมา
 TARGET_GROUP_ID = "Cad74a32468ca40051bd7071a6064660d" 
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
-# เชื่อมต่อ Supabase
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# รายชื่อ Admin
 ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a"]
 
-# --- 2. ฟังก์ชันสร้างตารางสวยๆ (Flex Message) ---
+# --- [ฟังก์ชันสร้าง Flex Message ต่างๆ คงเดิมตามที่คุณเขียนไว้] ---
 def create_schedule_flex(title, data_rows, color="#0D47A1"):
     if not data_rows:
         return TextSendMessage(text=f"✅ ไม่มีรายการจองสำหรับ {title} ในขณะนี้ครับ")
@@ -55,7 +54,6 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         contents.append({"type": "separator", "margin": "sm"})
     return FlexSendMessage(alt_text=f"ตาราง {title}", contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}})
 
-# --- 3. ฟังก์ชันสร้างปุ่มอนุมัติ (Flex Message) ---
 def create_approval_flex(booking_id, data):
     return FlexSendMessage(
         alt_text="มีคำขอจองใหม่",
@@ -83,32 +81,29 @@ def create_approval_flex(booking_id, data):
         }
     )
 
-# --- 4. Webhook Handler ---
 @app.post("/callback")
 async def callback(request: Request):
     signature = request.headers.get('X-Line-Signature')
     body = await request.body()
+    # เพิ่ม Print เพื่อดูว่ามีข้อความเข้ามาไหมใน Log ของ Render
+    print(f"Request Body: {body.decode('utf-8')}")
     try:
         handler.handle(body.decode('utf-8'), signature)
-    except:
+    except Exception as e:
+        print(f"Error handling webhook: {e}")
         raise HTTPException(status_code=500)
     return 'OK'
 
-# --- 5. จัดการข้อความ (Text) ---
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     text = event.message.text.strip()
     
-    # คำสั่งเช็ค ID กลุ่ม
     if text == "เช็ค ID กลุ่ม":
         if event.source.type == 'group':
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ID กลุ่มของคุณคือ:\n{event.source.group_id}"))
         else:
             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 ต้องพิมพ์ใน 'กลุ่ม' เท่านั้นครับ"))
 
-    # (ส่วนเงื่อนไข ดูตารางรถ/ห้อง อื่นๆ ของคุณใส่ต่อตรงนี้ได้เลย)
-
-# --- 6. จัดการปุ่มกด (Postback) ---
 @handler.add(PostbackEvent)
 def handle_postback(event):
     if event.source.user_id not in ADMIN_IDS:
@@ -133,13 +128,10 @@ def handle_postback(event):
                 TextSendMessage(text="📢 นี่คือตารางงานล่าสุด"),
                 create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
             ]
-            # ส่งหาทุกคน
             line_bot_api.broadcast(messages)
-            # ส่งลงกลุ่ม (ถ้าใส่ ID แล้ว)
-            if TARGET_GROUP_ID != "ใส่_ID_กลุ่ม_ตรงนี้":
+            if TARGET_GROUP_ID:
                 line_bot_api.push_message(TARGET_GROUP_ID, messages)
 
-# --- 7. รับ Notify จาก Streamlit ---
 @app.post("/notify")
 async def notify_booking(request: Request):
     data = await request.json()
@@ -153,18 +145,17 @@ async def notify_booking(request: Request):
             create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
         ]
         line_bot_api.broadcast(messages)
-        if TARGET_GROUP_ID != "ใส่_ID_กลุ่ม_ตรงนี้":
+        if TARGET_GROUP_ID:
             line_bot_api.push_message(TARGET_GROUP_ID, messages)
     else:
-        # งานใหม่รออนุมัติ
         flex_msg = create_approval_flex(data.get("id"), data)
         line_bot_api.broadcast(flex_msg)
-        if TARGET_GROUP_ID != "ใส่_ID_กลุ่ม_ตรงนี้":
+        if TARGET_GROUP_ID:
             line_bot_api.push_message(TARGET_GROUP_ID, flex_msg)
         
     return {"status": "success"}
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
-
+    # ปรับปรุง: ใช้ Port ที่ Render กำหนดให้ผ่าน Environment Variable
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)
