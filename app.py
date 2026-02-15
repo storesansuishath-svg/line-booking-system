@@ -18,7 +18,7 @@ SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
 SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 
 # *** นำ ID กลุ่มที่ได้จากบอท (ขึ้นต้นด้วย C...) มาใส่ตรงนี้หลังจากเช็คได้แล้ว ***
-TARGET_GROUP_ID = "ใส่_ID_กลุ่ม_ตรงนี้" 
+TARGET_GROUP_ID = "Cad74a32468ca40051bd7071a6064660d" 
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
@@ -167,3 +167,4 @@ async def notify_booking(request: Request):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
