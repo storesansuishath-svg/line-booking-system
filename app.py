@@ -18,7 +18,7 @@ LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
 SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
 SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 
-# ID กลุ่มที่ระบุมา
+# ID กลุ่มที่คุณระบุมา
 TARGET_GROUP_ID = "Cad74a32468ca40051bd7071a6064660d" 
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
@@ -28,13 +28,13 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # รายชื่อ Admin
 ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a"]
 
-# --- 2. ฟังก์ชันช่วยส่งข้อความ 2 ทาง (Broadcast + Group Push) ---
+# --- 2. ฟังก์ชันตัวกลางสำหรับส่งข้อความ 2 ทาง (Broadcast + ลงกลุ่ม) ---
 def send_to_all_and_group(messages):
     """ส่งข้อความหาเพื่อนทุกคนและลงกลุ่มที่ระบุพร้อมกัน"""
     try:
-        # ส่งหาเพื่อนทุกคน (Broadcast)
+        # 1. ส่งหาเพื่อนทุกคน (Broadcast)
         line_bot_api.broadcast(messages)
-        # ส่งลงกลุ่ม (Push)
+        # 2. ส่งลงกลุ่ม Sansuisha (Push)
         line_bot_api.push_message(TARGET_GROUP_ID, messages)
     except Exception as e:
         print(f"Error sending messages: {e}")
@@ -43,19 +43,16 @@ def send_to_all_and_group(messages):
 def create_schedule_flex(title, data_rows, color="#0D47A1"):
     if not data_rows:
         return TextSendMessage(text=f"✅ ไม่มีรายการจองสำหรับ {title} ในขณะนี้ครับ")
-    
     contents = [
         {"type": "text", "text": title, "weight": "bold", "size": "xl", "color": color},
         {"type": "separator", "margin": "md"}
     ]
-    
     for i, row in enumerate(data_rows):
         try:
             t_start = datetime.fromisoformat(row['start_time']).strftime('%H:%M')
             t_end = datetime.fromisoformat(row['end_time']).strftime('%H:%M')
             date_str = datetime.fromisoformat(row['start_time']).strftime('%d/%m')
         except: t_start, t_end, date_str = "-", "-", "-"
-
         contents.append({
             "type": "box", "layout": "vertical", "margin": "md",
             "contents": [
@@ -67,11 +64,7 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
             ]
         })
         contents.append({"type": "separator", "margin": "sm"})
-
-    return FlexSendMessage(
-        alt_text=f"ตาราง {title}", 
-        contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
-    )
+    return FlexSendMessage(alt_text=f"ตาราง {title}", contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}})
 
 # --- 4. ฟังก์ชันสร้างปุ่มอนุมัติ (Flex Message) ---
 def create_approval_flex(booking_id, data):
@@ -106,12 +99,15 @@ async def callback(request: Request):
     body = await request.body()
     try:
         handler.handle(body.decode('utf-8'), signature)
-    except Exception as e:
-        print(f"Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except:
+        raise HTTPException(status_code=500)
     return 'OK'
 
 # --- 6. จัดการข้อความ Text ---
+@app.get("/")
+def home():
+    return {"status": "Bot is running"}
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     text = event.message.text.strip()
@@ -125,11 +121,14 @@ def handle_message(event):
     elif text == "เช็ค ID":
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ID ของคุณ: {event.source.user_id}"))
 
+    # ส่วนเมนูอื่นๆ คงเดิมตามโค้ดของคุณ
+    # ...
+
 # --- 7. จัดการกดปุ่ม (Postback) ---
 @handler.add(PostbackEvent)
 def handle_postback(event):
     if event.source.user_id not in ADMIN_IDS:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 คุณไม่มีสิทธิ์ครับ"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 คุณไม่มีสิทธิ์อนุมัติครับ"))
         return
 
     data = dict(parse_qsl(event.postback.data))
@@ -139,20 +138,20 @@ def handle_postback(event):
         status = "Approved" if action == "approve" else "Rejected"
         supabase.table("bookings").update({"status": status}).eq("id", booking_id).execute()
         
-        # ตอบกลับแอดมินคนกด
+        # แจ้งผลเฉพาะแอดมินคนกด
         msg_confirm = f"{'✅ อนุมัติ' if action == 'approve' else '❌ ปฏิเสธ'}คุณ {user_name} เรียบร้อย"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg_confirm))
 
-        # หากเป็นการอนุมัติ ให้ส่งตารางล่าสุดหาทุกคนและลงกลุ่ม
+        # หากเป็นการอนุมัติ: ส่งประกาศตารางล่าสุดหาทุกคน และลงกลุ่ม
         if action == "approve":
             now_iso = datetime.now().isoformat()
             res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).order("start_time").execute()
             
-            latest_messages = [
+            messages = [
                 TextSendMessage(text="📢 นี่คือตารางงานล่าสุด"),
                 create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
             ]
-            send_to_all_and_group(latest_messages)
+            send_to_all_and_group(messages)
 
 # --- 8. รับ Notify จาก Streamlit ---
 @app.post("/notify")
@@ -161,21 +160,22 @@ async def notify_booking(request: Request):
     mode = data.get("mode")
     
     if mode == "all_schedule":
+        # กรณีมีการแก้ไขข้อมูลหน้าเว็บ: ส่งตารางล่าสุดหาทุกคน และลงกลุ่ม
         now = datetime.now().isoformat()
         res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).order("start_time").execute()
-        
         messages = [
             TextSendMessage(text="📢 นี่คือตารางงานล่าสุด"),
             create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
         ]
         send_to_all_and_group(messages)
     else:
-        # งานใหม่รออนุมัติ ส่งปุ่มไปให้ทุกคนและลงกลุ่ม
+        # กรณีงานใหม่รออนุมัติ: ส่งปุ่มอนุมัติหาทุกคน และลงกลุ่ม
         approval_flex = create_approval_flex(data.get("id"), data)
         send_to_all_and_group(approval_flex)
         
     return {"status": "success"}
 
 if __name__ == "__main__":
+    # ปรับปรุง: ใช้ Port จาก Render เพื่อความเสถียร
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(app, host="0.0.0.0", port=port)
