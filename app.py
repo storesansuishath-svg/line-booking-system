@@ -5,15 +5,17 @@ from linebot.models import (
     QuickReply, QuickReplyButton, MessageAction, PostbackEvent, PostbackAction
 )
 from supabase import create_client
-from datetime import datetime, timedelta
+from datetime import datetime
 from urllib.parse import parse_qsl
 import os
 
 app = FastAPI()
 
 # --- 1. ตั้งค่า LINE & SUPABASE ---
+# (ใส่ Token ของคุณตรงนี้)
 LINE_ACCESS_TOKEN = "ILJVHrD24hZCe/stNR6wKxglGerAEtefHwB0HlDzq2vx5zc+hx0JoS2fDQe6BFzsOCwMD47HldTFuCBve9JRa1uAlAuq24sK2Iv/C5T/+p8Vkh1ppr3MKOb0ghP9MGO1kVj4UmgSzdyrI8P0vKHprgdB04t89/1O/w1cDnyilFU="
 LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
+
 SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
 SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 
@@ -21,10 +23,13 @@ line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 2. รายชื่อ Admin ---
-ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a","U7b5850883e4b9b1ca2b172b164ceaf56"]
+# --- 2. รายชื่อ Admin (ใส่ User ID) ---
+ADMIN_IDS = [
+    "Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a",
+    # เพิ่ม ID Admin คนอื่นได้ที่นี่
+]
 
-# --- 3. ฟังก์ชันสร้างตารางสรุป (Flex Message) ---
+# --- 3. ฟังก์ชันสร้างตารางสวยๆ (Flex Message) - แก้ไขเพิ่ม "วัตถุประสงค์" ---
 def create_schedule_flex(title, data_rows, color="#0D47A1"):
     if not data_rows:
         return TextSendMessage(text=f"✅ ไม่มีรายการจองสำหรับ {title} ในขณะนี้ครับ")
@@ -56,29 +61,32 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         alt_text=f"ตาราง {title}", 
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
+
 # --- 4. ฟังก์ชันสร้างปุ่มอนุมัติ (Flex Message) ---
 def create_approval_flex(booking_id, data):
-    return FlexSendMessage(
-        alt_text="มีคำขอจองใหม่",
-        contents={
-            "type": "bubble",
-            "body": {
-                "type": "box", "layout": "vertical",
-                "contents": [
-                    {"type": "text", "text": "🔔 คำขอจองใหม่", "weight": "bold", "color": "#E65100"},
-                    {"type": "text", "text": f"ID: {booking_id}", "size": "xs", "color": "#aaaaaa"},
-                    {"type": "separator", "margin": "md"},
-                    {"type": "text", "text": data.get('resource', '-'), "weight": "bold", "size": "lg", "margin": "md"},
-                    {"type": "text", "text": f"👤 {data.get('name', '-')} ({data.get('dept', '-')})", "size": "sm"},
-                    {"type": "text", "text": f"📅 {data.get('date', '-')} - {data.get('end_date', '-')}", "size": "sm", "color": "#1E88E5"},
-                    # เพิ่มปลายทาง
-                    {"type": "text", "text": f"📍 ปลายทาง: {data.get('destination', '-')}", "size": "sm", "color": "#666666"},
-                    {"type": "text", "text": f"📝 {data.get('purpose', '-')}", "size": "sm", "wrap": True}
-                ]
-            },
-            "footer": { ... } # ส่วนปุ่มกดคงเดิม
+    flex_content = {
+        "type": "bubble",
+        "body": {
+            "type": "box", "layout": "vertical",
+            "contents": [
+                {"type": "text", "text": "🔔 คำขอจองใหม่", "weight": "bold", "color": "#E65100"},
+                {"type": "text", "text": f"ID: {booking_id}", "size": "xs", "color": "#aaaaaa"},
+                {"type": "separator", "margin": "md"},
+                {"type": "text", "text": data.get('resource', '-'), "weight": "bold", "size": "lg", "margin": "md"},
+                {"type": "text", "text": f"👤 {data.get('name', '-')} ({data.get('dept', '-')})", "size": "sm"},
+                {"type": "text", "text": f"📅 {data.get('date', '-')} - {data.get('end_date', '-')}", "size": "sm", "color": "#1E88E5"},
+                {"type": "text", "text": f"📝 {data.get('purpose', '-')}", "size": "sm", "wrap": True, "color": "#555555"}
+            ]
+        },
+        "footer": {
+            "type": "box", "layout": "horizontal", "spacing": "sm",
+            "contents": [
+                {"type": "button", "style": "primary", "color": "#2E7D32", "action": PostbackAction(label="✅ อนุมัติ", data=f"action=approve&id={booking_id}&user={data.get('name')}", display_text="อนุมัติครับ")},
+                {"type": "button", "style": "primary", "color": "#C62828", "action": PostbackAction(label="❌ ปฏิเสธ", data=f"action=reject&id={booking_id}&user={data.get('name')}", display_text="ปฏิเสธครับ")}
+            ]
         }
-    )
+    }
+    return FlexSendMessage(alt_text="มีคำขอจองใหม่", contents=flex_content)
 
 # --- 5. Webhook Handler ---
 @app.post("/callback")
@@ -93,10 +101,15 @@ async def callback(request: Request):
     return 'OK'
 
 # --- 6. จัดการข้อความ Text ---
+@app.get("/")
+def home():
+    return {"status": "Bot is running"}
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     text = event.message.text.strip()
     
+    # เมนู Quick Reply (ปุ่มลอยเหนือคีย์บอร์ด)
     quick_menu = QuickReply(items=[
         QuickReplyButton(action=MessageAction(label="🚗 ตารางรถ", text="ดูตารางรถ")),
         QuickReplyButton(action=MessageAction(label="🏢 ตารางห้อง", text="ดูตารางห้อง")),
@@ -123,83 +136,81 @@ def handle_message(event):
         url = "https://office-booking-system-hll8ub77ixfgmj2s4slbu4.streamlit.app/"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"กดลิงก์เพื่อจองครับ:\n{url}", quick_reply=quick_menu))
 
-    elif text == "เช็ค ID":
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ID ของคุณ: {event.source.user_id}"))
-
-    # --- ส่วนที่เพิ่มใหม่: เช็ค ID กลุ่ม ---
-    elif text == "เช็ค ID กลุ่ม":
-        if event.source.type == 'group':
-            group_id = event.source.group_id
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ID กลุ่มของคุณคือ:\n{group_id}"))
-        else:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 ต้องพิมพ์ใน 'กลุ่ม' เท่านั้นครับ"))
-
-    elif text == "รออนุมัติ":
+    elif text == "รออนุมัติ" or text == "อนุมัติ/ไม่อนุมัติ":
         if event.source.user_id in ADMIN_IDS:
             res = supabase.table("bookings").select("*").eq("status", "Pending").execute()
             if not res.data:
                 line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ ไม่มีรายการรออนุมัติครับ", quick_reply=quick_menu))
             else:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"มี {len(res.data)} รายการรออนุมัติครับ", quick_reply=quick_menu))
+                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"มี {len(res.data)} รายการรออนุมัติ (กรุณารอแจ้งเตือน หรือกดจองใหม่เพื่อทดสอบ)", quick_reply=quick_menu))
         else:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 สำหรับ Admin เท่านั้นครับ", quick_reply=quick_menu))
+             line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 สำหรับ Admin เท่านั้นครับ", quick_reply=quick_menu))
+            
+    elif text == "เช็ค ID":
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ID ของคุณ: {event.source.user_id}"))
 
 # --- 7. จัดการกดปุ่ม (Postback) ---
 @handler.add(PostbackEvent)
 def handle_postback(event):
+    # ตรวจสอบสิทธิ์ Admin
     if event.source.user_id not in ADMIN_IDS:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 ไม่มีสิทธิ์ครับ"))
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 คุณไม่มีสิทธิ์อนุมัติครับ"))
         return
 
+    # แกะข้อมูลจากปุ่ม
     data = dict(parse_qsl(event.postback.data))
-    action, booking_id, user_name = data.get('action'), data.get('id'), data.get('user')
+    action = data.get('action')
+    booking_id = data.get('id')
+    user_name = data.get('user')
 
     if action and booking_id:
+        # 1. อัปเดตสถานะใน Supabase ทันที
         status = "Approved" if action == "approve" else "Rejected"
         supabase.table("bookings").update({"status": status}).eq("id", booking_id).execute()
         
-        msg_text = f"✅ อนุมัติคุณ {user_name} เรียบร้อย" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg_text))
+        # 2. เตรียมข้อความยืนยันตัวหนังสือ
+        msg_text = f"✅ อนุมัติคุณ {user_name} เรียบร้อยแล้ว" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
+        
+        # สร้างรายการข้อความที่จะส่ง (List of Messages)
+        reply_content = [TextSendMessage(text=msg_text)]
 
-        # ส่งตารางล่าสุดหลังอนุมัติ (ใช้ broadcast ไปก่อนจนกว่าจะได้ ID กลุ่ม)
+        # 3. ถ้ากด 'อนุมัติ' ให้ดึงตารางมาแถมไปด้วย
         if action == "approve":
-            now_iso = datetime.now().isoformat()
-            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).order("start_time").execute()
-            line_bot_api.broadcast([
-                TextSendMessage(text="📢 นี่คือตารางงานล่าสุด"),
-                create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
-            ])
+            try:
+                # ดึงข้อมูลใหม่ล่าสุดหลังอัปเดต
+                now_iso = datetime.now().isoformat()
+                res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).order("start_time").execute()
+                
+                if res.data:
+                    # สร้าง Flex Message ตารางงาน
+                    table_flex = create_schedule_flex("📅 ตารางงานอัปเดตล่าสุด", res.data, "#2E7D32")
+                    reply_content.append(table_flex)
+            except Exception as e:
+                print(f"Error fetching schedule: {e}")
+
+        # 4. ส่งคำตอบกลับ (Reply) ทีเดียวทั้งชุด
+        try:
+            line_bot_api.reply_message(event.reply_token, reply_content)
+        except Exception as e:
+            print(f"Reply Error: {e}")
+            # ถ้า Reply ไม่ได้ ให้ลองส่งแบบ Push (ป้องกันกรณี Token หมดอายุ)
+            line_bot_api.push_message(event.source.user_id, reply_content)
 
 # --- 8. รับ Notify จาก Streamlit ---
+
 @app.post("/notify")
 async def notify_booking(request: Request):
     data = await request.json()
-    mode = data.get("mode")
-    if mode == "all_schedule":
-        now = datetime.now().isoformat()
-        res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).order("start_time").execute()
-        line_bot_api.broadcast([
-            TextSendMessage(text="📢 นี่คือตารางงานล่าสุด"),
-            create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
-        ])
-    else:
-        line_bot_api.broadcast(create_approval_flex(data.get("id"), data))
+    # ส่งเข้ากลุ่มโดย Broadcast (หรือเปลี่ยนเป็น push_message หากทราบ Group ID)
+    line_bot_api.broadcast(create_approval_flex(data.get("id"), data))
     return {"status": "success"}
-
-# --- 9. แจ้งเตือนล่วงหน้า 15 นาที ---
-@app.get("/check-reminders")
-def check_reminders():
-    now = datetime.now()
-    t_min = (now + timedelta(minutes=14)).isoformat()
-    t_max = (now + timedelta(minutes=16)).isoformat()
-    res = supabase.table("bookings").select("*").eq("status", "Approved").eq("reminder_sent", False).gte("start_time", t_min).lte("start_time", t_max).execute()
-    if res.data:
-        for item in res.data:
-            msg = f"⏰ แจ้งเตือนล่วงหน้า 15 นาที!\n\n🚗/🏢: {item['resource']}\n👤 ผู้จอง: {item['requester']}"
-            line_bot_api.broadcast(TextSendMessage(text=msg))
-            supabase.table("bookings").update({"reminder_sent": True}).eq("id", item['id']).execute()
-    return {"status": "checked"}
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
+
+
+
+
+
