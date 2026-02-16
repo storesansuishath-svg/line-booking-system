@@ -25,7 +25,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 2. รายชื่อ Admin (ใส่ User ID) ---
 ADMIN_IDS = [
-    "Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a",
+    ""Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a","U7b5850883e4b9b1ca2b172b164ceaf56"",
     # เพิ่ม ID Admin คนอื่นได้ที่นี่
 ]
 
@@ -208,6 +208,7 @@ async def notify_booking(request: Request):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
