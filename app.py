@@ -23,7 +23,7 @@ handler = WebhookHandler(LINE_SECRET)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 2. รายชื่อ Admin และ Group ID เป้าหมาย ---
-ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a"]
+ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a","U7b5850883e4b9b1ca2b172b164ceaf56"]
 TARGET_GROUP_ID = "Cad74a32468ca40051bd7071a6064660d" # ID กลุ่มที่ต้องการให้แจ้งเตือน
 
 # --- 3. ฟังก์ชันสร้างตารางสรุป (Flex Message) ---
@@ -280,3 +280,4 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
