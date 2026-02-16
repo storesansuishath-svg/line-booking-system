@@ -5,7 +5,7 @@ from linebot.models import (
     QuickReply, QuickReplyButton, MessageAction, PostbackEvent, PostbackAction
 )
 from supabase import create_client
-from datetime import datetime, timedelta
+from datetime import datetime
 from urllib.parse import parse_qsl
 import os
 
@@ -21,9 +21,8 @@ line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 2. รายชื่อ Admin และ ID กลุ่ม ---
+# --- 2. รายชื่อ Admin ---
 ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a"]
-TARGET_GROUP_ID = "Cad74a32468ca40051bd7071a6064660d"
 
 # --- 3. ฟังก์ชันสร้างตารางสรุป (Flex Message) ---
 def create_schedule_flex(title, data_rows, color="#0D47A1"):
@@ -132,13 +131,6 @@ def handle_message(event):
     elif text == "เช็ค ID":
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ID ของคุณ: {event.source.user_id}"))
 
-    elif text == "เช็ค ID กลุ่ม":
-        if event.source.type == 'group':
-            group_id = event.source.group_id
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ID กลุ่มของคุณคือ:\n{group_id}"))
-        else:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 ต้องพิมพ์ใน 'กลุ่ม' เท่านั้นครับ"))
-
     elif text == "รออนุมัติ":
         if event.source.user_id in ADMIN_IDS:
             res = supabase.table("bookings").select("*").eq("status", "Pending").execute()
@@ -163,33 +155,22 @@ def handle_postback(event):
         status = "Approved" if action == "approve" else "Rejected"
         supabase.table("bookings").update({"status": status}).eq("id", booking_id).execute()
         
-        # 1. แจ้ง Admin ที่กดปุ่ม
+        # 1. ตอบกลับ Admin ที่กด
         msg_text = f"✅ อนุมัติคุณ {user_name} เรียบร้อย" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg_text))
 
-        # 2. แจ้งสถานะไปยังกลุ่ม และเพื่อนทุกคน
-        status_broadcast = f"📢 แจ้งสถานะคำขอ: คุณ {user_name} ได้รับการ '{status}' แล้วครับ"
-        line_bot_api.broadcast(TextSendMessage(text=status_broadcast))
-        try:
-            line_bot_api.push_message(TARGET_GROUP_ID, TextSendMessage(text=status_broadcast))
-        except: pass
+        # 2. แจ้งผลหาทุกคน (Broadcast)
+        broadcast_text = f"📢 แจ้งสถานะคำขอ: คุณ {user_name} ได้รับการ '{status}' แล้ว"
+        line_bot_api.broadcast(TextSendMessage(text=broadcast_text))
 
-        # 3. ถ้าอนุมัติ ให้ส่งตารางงานล่าสุดทันที
+        # 3. ถ้าอนุมัติ ให้ส่งตารางงานล่าสุดทันที (Broadcast)
         if action == "approve":
             now_iso = datetime.now().isoformat()
             res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).order("start_time").execute()
-            
-            schedule_msg = [
-                TextSendMessage(text="📢 นี่คือตารางงานอัปเดตล่าสุด"),
-                create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
-            ]
-            
-            # ส่งหาทุกคน
-            line_bot_api.broadcast(schedule_msg)
-            # ส่งเข้ากลุ่ม
-            try:
-                line_bot_api.push_message(TARGET_GROUP_ID, schedule_msg)
-            except: pass
+            line_bot_api.broadcast([
+                TextSendMessage(text="📅 ตารางการใช้งานปัจจุบัน (อัปเดต)"),
+                create_schedule_flex("ตารางล่าสุด", res.data, "#2E7D32")
+            ])
 
 # --- 8. รับ Notify จาก Streamlit ---
 @app.post("/notify")
@@ -199,41 +180,19 @@ async def notify_booking(request: Request):
     if mode == "all_schedule":
         now = datetime.now().isoformat()
         res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).order("start_time").execute()
-        msg = [
+        line_bot_api.broadcast([
             TextSendMessage(text="📢 นี่คือตารางงานล่าสุด"),
             create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
-        ]
-        line_bot_api.broadcast(msg)
-        try:
-            line_bot_api.push_message(TARGET_GROUP_ID, msg)
-        except: pass
+        ])
     else:
-        # แจ้งเตือนเพื่อนทุกคนเมื่อมีคำขอใหม่
-        approval_flex = create_approval_flex(data.get("id"), data)
-        line_bot_api.broadcast(approval_flex)
-        # แจ้งเตือนเข้ากลุ่มเพื่อให้ Admin ทราบ
-        try:
-            line_bot_api.push_message(TARGET_GROUP_ID, approval_flex)
-        except: pass
-        
+        # มีคำขอจองใหม่ -> ส่งปุ่ม อนุมัติ/ไม่อนุมัติ หา Admin/ทุกคน
+        line_bot_api.broadcast(create_approval_flex(data.get("id"), data))
     return {"status": "success"}
 
-# --- 9. แจ้งเตือนล่วงหน้า 15 นาที ---
+# --- 9. ฟังก์ชันเช็ค (ปิดการแจ้งเตือนไว้ตามสั่ง) ---
 @app.get("/check-reminders")
 def check_reminders():
-    now = datetime.now()
-    t_min = (now + timedelta(minutes=14)).isoformat()
-    t_max = (now + timedelta(minutes=16)).isoformat()
-    res = supabase.table("bookings").select("*").eq("status", "Approved").eq("reminder_sent", False).gte("start_time", t_min).lte("start_time", t_max).execute()
-    if res.data:
-        for item in res.data:
-            msg = f"⏰ แจ้งเตือนล่วงหน้า 15 นาที!\n\n🚗/🏢: {item['resource']}\n👤 ผู้จอง: {item['requester']}"
-            line_bot_api.broadcast(TextSendMessage(text=msg))
-            try:
-                line_bot_api.push_message(TARGET_GROUP_ID, TextSendMessage(text=msg))
-            except: pass
-            supabase.table("bookings").update({"reminder_sent": True}).eq("id", item['id']).execute()
-    return {"status": "checked"}
+    return {"status": "reminder_disabled"}
 
 if __name__ == "__main__":
     import uvicorn
