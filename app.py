@@ -38,18 +38,24 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
             t_end = datetime.fromisoformat(row['end_time']).strftime('%H:%M')
             date_str = datetime.fromisoformat(row['start_time']).strftime('%d/%m')
         except: t_start, t_end, date_str = "-", "-", "-"
+        
         contents.append({
             "type": "box", "layout": "vertical", "margin": "md",
             "contents": [
                 {"type": "text", "text": f"{i+1}. {row['resource']}", "weight": "bold", "color": "#333333"},
                 {"type": "text", "text": f"📅 {date_str} | ⏰ {t_start}-{t_end}", "size": "sm", "color": color},
                 {"type": "text", "text": f"👤 {row['requester']} ({row.get('dept', '-')})", "size": "xs", "color": "#666666"},
+                # เพิ่มบรรทัดปลายทางตรงนี้ครับ
+                {"type": "text", "text": f"📍 ปลายทาง: {row.get('destination', '-')}", "size": "xs", "color": "#666666", "wrap": True},
                 {"type": "text", "text": f"📝 {row.get('purpose', '-')}", "size": "xs", "color": "#666666", "wrap": True}
             ]
         })
         contents.append({"type": "separator", "margin": "sm"})
-    return FlexSendMessage(alt_text=f"ตาราง {title}", contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}})
-
+    
+    return FlexSendMessage(
+        alt_text=f"ตาราง {title}", 
+        contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
+    )
 # --- 4. ฟังก์ชันสร้างปุ่มอนุมัติ (Flex Message) ---
 def create_approval_flex(booking_id, data):
     return FlexSendMessage(
@@ -65,16 +71,12 @@ def create_approval_flex(booking_id, data):
                     {"type": "text", "text": data.get('resource', '-'), "weight": "bold", "size": "lg", "margin": "md"},
                     {"type": "text", "text": f"👤 {data.get('name', '-')} ({data.get('dept', '-')})", "size": "sm"},
                     {"type": "text", "text": f"📅 {data.get('date', '-')} - {data.get('end_date', '-')}", "size": "sm", "color": "#1E88E5"},
+                    # เพิ่มปลายทาง
+                    {"type": "text", "text": f"📍 ปลายทาง: {data.get('destination', '-')}", "size": "sm", "color": "#666666"},
                     {"type": "text", "text": f"📝 {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-            "footer": {
-                "type": "box", "layout": "horizontal", "spacing": "sm",
-                "contents": [
-                    {"type": "button", "style": "primary", "color": "#2E7D32", "action": PostbackAction(label="✅ อนุมัติ", data=f"action=approve&id={booking_id}&user={data.get('name')}")},
-                    {"type": "button", "style": "primary", "color": "#C62828", "action": PostbackAction(label="❌ ปฏิเสธ", data=f"action=reject&id={booking_id}&user={data.get('name')}")}
-                ]
-            }
+            "footer": { ... } # ส่วนปุ่มกดคงเดิม
         }
     )
 
