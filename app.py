@@ -57,6 +57,7 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         alt_text=f"ตาราง {title}", 
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
+# --- แก้ไขฟังก์ชันสร้างปุ่ม (วางทับของเดิมที่มี { ... }) ---
 def create_approval_flex(booking_id, data):
     user_name = data.get('name', '-')
     return FlexSendMessage(
@@ -76,16 +77,32 @@ def create_approval_flex(booking_id, data):
                     {"type": "text", "text": f"📝 {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-            "footer": { # << ส่วนปุ่มกดที่ต้องเพิ่มเข้าไปเพื่อให้ปุ่มเด้งครับ
-                "type": "box", "layout": "horizontal", "spacing": "sm",
+            "footer": { # << เติมปุ่มอนุมัติ/ปฏิเสธแบบเต็มรูปแบบ
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "sm",
                 "contents": [
                     {
-                        "type": "button", "style": "primary", "color": "#2E7D32", 
-                        "action": {"type": "postback", "label": "อนุมัติ", "data": f"action=approve&id={booking_id}&user={user_name}"}
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#2E7D32", # สีเขียว
+                        "action": {
+                            "type": "postback",
+                            "label": "อนุมัติ",
+                            "data": f"action=approve&id={booking_id}&user={user_name}",
+                            "displayText": f"อนุมัติรายการของ {user_name}"
+                        }
                     },
                     {
-                        "type": "button", "style": "primary", "color": "#C62828", 
-                        "action": {"type": "postback", "label": "ปฏิเสธ", "data": f"action=reject&id={booking_id}&user={user_name}"}
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#C62828", # สีแดง
+                        "action": {
+                            "type": "postback",
+                            "label": "ปฏิเสธ",
+                            "data": f"action=reject&id={booking_id}&user={user_name}",
+                            "displayText": f"ปฏิเสธรายการของ {user_name}"
+                        }
                     }
                 ]
             }
@@ -214,6 +231,7 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
