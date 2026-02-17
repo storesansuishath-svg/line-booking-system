@@ -14,11 +14,11 @@ app = FastAPI()
 # --- 1. ตั้งค่า LINE & SUPABASE ---
 LINE_ACCESS_TOKEN = "hMc9myYeQVze7rzukNnOiGyMBtiFwDZaqRRzhci6iRAaCKAPorOkrjy3iV8HZ3ittnQcBknOd9Ou43Tx+9QHYVyQdPyUCpq4eWpr2B9XmKg2I6ABSl6QSWmL63MwEWbaikVKqpZjLZLm3/gEyXG3MAdB04t89/1O/w1cDnyilFU="
 LINE_SECRET = "1a5c831d35b68b8b107eadaa179dee35"
-# ID กลุ่มที่คุณระบุ
+# ID กลุ่มที่คุณต้องการให้แจ้งเตือน
 GROUP_ID = "Cad74a32468ca40051bd7071a6064660d"
 
 SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
-# ⚠️ สำคัญ: เพื่อให้กด "อนุมัติ" แล้วสถานะเปลี่ยนจริง แนะนำใช้ service_role key (ขึ้นต้นด้วย ey...)
+# ⚠️ แนะนำเปลี่ยนเป็น service_role key (ขึ้นต้นด้วย ey...) เพื่อให้ Bot มีสิทธิ์แก้ไขข้อมูลในฐานข้อมูลได้ครับ
 SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
@@ -28,7 +28,7 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 # --- 2. รายชื่อ Admin ---
 ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a"]
 
-# --- 3. ฟังก์ชันสร้างตารางสรุป (Flex Message) ---
+# --- 3. ฟังก์ชันสร้างตารางสรุป ---
 def create_schedule_flex(title, data_rows, color="#0D47A1"):
     if not data_rows:
         return TextSendMessage(text=f"✅ ไม่มีรายการจองสำหรับ {title} ในขณะนี้ครับ")
@@ -60,7 +60,7 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
 
-# --- 4. ฟังก์ชันสร้างปุ่มอนุมัติ (Fix Syntax 100%) ---
+# --- 4. ฟังก์ชันสร้างปุ่มอนุมัติ (แก้ไข SyntaxError แล้ว) ---
 def create_approval_flex(booking_id, data):
     user_name = data.get('name', '-')
     return FlexSendMessage(
@@ -171,7 +171,6 @@ def handle_postback(event):
         msg_text = f"✅ อนุมัติคุณ {user_name} เรียบร้อย" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg_text))
 
-        # เมื่ออนุมัติแล้ว ส่งตารางล่าสุดเข้า "กลุ่ม"
         if action == "approve":
             now_iso = datetime.now().isoformat()
             res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).order("start_time").execute()
@@ -198,7 +197,6 @@ def check_reminders():
     if res.data:
         for item in res.data:
             msg = f"⏰ แจ้งเตือนล่วงหน้า 15 นาที!\n\n🚗/🏢: {item['resource']}\n👤 ผู้จอง: {item['requester']}"
-            # แจ้งเตือนเข้ากลุ่ม
             line_bot_api.push_message(GROUP_ID, TextSendMessage(text=msg))
             supabase.table("bookings").update({"reminder_sent": True}).eq("id", item['id']).execute()
     return {"status": "checked"}
