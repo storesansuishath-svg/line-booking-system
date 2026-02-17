@@ -57,9 +57,9 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         alt_text=f"ตาราง {title}", 
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
-# --- 4. ฟังก์ชันสร้างปุ่มอนุมัติ (Flex Message) ---
-# เพิ่มบรรทัดปลายทางในหน้าแจ้งเตือน Admin
+# --- แก้ไขจุดที่ 4: ฟังก์ชันสร้างปุ่มอนุมัติ (วางทับฟังก์ชันเดิม) ---
 def create_approval_flex(booking_id, data):
+    user_name = data.get('name', '-')
     return FlexSendMessage(
         alt_text="มีคำขอจองใหม่",
         contents={
@@ -67,21 +67,47 @@ def create_approval_flex(booking_id, data):
             "body": {
                 "type": "box", "layout": "vertical",
                 "contents": [
-                    {"type": "text", "text": "🔔 คำขอจองใหม่", "weight": "bold", "color": "#E65100"},
+                    {"type": "text", "text": "🔔 คำขอจองใหม่", "weight": "bold", "color": "#E65100", "size": "lg"},
                     {"type": "text", "text": f"ID: {booking_id}", "size": "xs", "color": "#aaaaaa"},
                     {"type": "separator", "margin": "md"},
-                    {"type": "text", "text": data.get('resource', '-'), "weight": "bold", "size": "lg", "margin": "md"},
-                    {"type": "text", "text": f"👤 {data.get('name', '-')} ({data.get('dept', '-')})", "size": "sm"},
+                    {"type": "text", "text": data.get('resource', '-'), "weight": "bold", "size": "xl", "margin": "md"},
+                    {"type": "text", "text": f"👤 {user_name} ({data.get('dept', '-')})", "size": "sm"},
                     {"type": "text", "text": f"📅 {data.get('date', '-')} - {data.get('end_date', '-')}", "size": "sm", "color": "#1E88E5"},
-                    # เพิ่มปลายทาง
                     {"type": "text", "text": f"📍 ปลายทาง: {data.get('destination', '-')}", "size": "sm", "color": "#666666"},
                     {"type": "text", "text": f"📝 {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-            "footer": { ... } # ส่วนปุ่มกดคงเดิม
+            "footer": { # << เติมส่วนนี้เพื่อให้ปุ่มเด้งครับ
+                "type": "box",
+                "layout": "horizontal",
+                "spacing": "sm",
+                "contents": [
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#2E7D32",
+                        "action": {
+                            "type": "postback",
+                            "label": "อนุมัติ",
+                            "data": f"action=approve&id={booking_id}&user={user_name}",
+                            "displayText": f"อนุมัติรายการของ {user_name}"
+                        }
+                    },
+                    {
+                        "type": "button",
+                        "style": "primary",
+                        "color": "#C62828",
+                        "action": {
+                            "type": "postback",
+                            "label": "ปฏิเสธ",
+                            "data": f"action=reject&id={booking_id}&user={user_name}",
+                            "displayText": f"ปฏิเสธรายการของ {user_name}"
+                        }
+                    }
+                ]
+            }
         }
     )
-
 # --- 5. Webhook Handler ---
 @app.post("/callback")
 async def callback(request: Request):
@@ -205,3 +231,4 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
