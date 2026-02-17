@@ -57,7 +57,6 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         alt_text=f"ตาราง {title}", 
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
-# --- แก้ไขฟังก์ชันสร้างปุ่ม (วางทับของเดิมที่มี { ... }) ---
 def create_approval_flex(booking_id, data):
     user_name = data.get('name', '-')
     return FlexSendMessage(
@@ -77,7 +76,7 @@ def create_approval_flex(booking_id, data):
                     {"type": "text", "text": f"📝 {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-            "footer": { # << เติมปุ่มอนุมัติ/ปฏิเสธแบบเต็มรูปแบบ
+            "footer": { # << ส่วนนี้แหละครับที่ทำให้ 500 Error หายไปและปุ่มเด้งขึ้นมา
                 "type": "box",
                 "layout": "horizontal",
                 "spacing": "sm",
@@ -85,7 +84,7 @@ def create_approval_flex(booking_id, data):
                     {
                         "type": "button",
                         "style": "primary",
-                        "color": "#2E7D32", # สีเขียว
+                        "color": "#2E7D32", # สีเขียวอนุมัติ
                         "action": {
                             "type": "postback",
                             "label": "อนุมัติ",
@@ -96,7 +95,7 @@ def create_approval_flex(booking_id, data):
                     {
                         "type": "button",
                         "style": "primary",
-                        "color": "#C62828", # สีแดง
+                        "color": "#C62828", # สีแดงปฏิเสธ
                         "action": {
                             "type": "postback",
                             "label": "ปฏิเสธ",
@@ -231,6 +230,7 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
