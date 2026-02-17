@@ -58,7 +58,9 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
 def create_approval_flex(booking_id, data):
+    # ดึงชื่อผู้จองจากข้อมูลที่ Streamlit ส่งมา
     user_name = data.get('name', '-')
+    
     return FlexSendMessage(
         alt_text="มีคำขอจองใหม่",
         contents={
@@ -73,10 +75,10 @@ def create_approval_flex(booking_id, data):
                     {"type": "text", "text": f"👤 {user_name} ({data.get('dept', '-')})", "size": "sm"},
                     {"type": "text", "text": f"📅 {data.get('date', '-')} - {data.get('end_date', '-')}", "size": "sm", "color": "#1E88E5"},
                     {"type": "text", "text": f"📍 ปลายทาง: {data.get('destination', '-')}", "size": "sm", "color": "#666666"},
-                    {"type": "text", "text": f"📝 {data.get('purpose', '-')}", "size": "sm", "wrap": True}
+                    {"type": "text", "text": f"📝 วัตถุประสงค์: {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-            "footer": { # << ส่วนนี้แหละครับที่ทำให้ 500 Error หายไปและปุ่มเด้งขึ้นมา
+            "footer": { # << ส่วนนี้คือจุดที่ต้องแก้ไขให้สมบูรณ์ ปุ่มถึงจะเด้งครับ
                 "type": "box",
                 "layout": "horizontal",
                 "spacing": "sm",
@@ -230,6 +232,7 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
