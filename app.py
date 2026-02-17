@@ -12,7 +12,7 @@ import os
 app = FastAPI()
 
 # --- 1. ตั้งค่า LINE & SUPABASE ---
-LINE_ACCESS_TOKEN = "rw5l8FX48+sbMx3PpdE9+gj48K4dD96ii8O5yM/fZZ+4LbH85kdp3Szu/dEiPq4otnQcBknOd9Ou43Tx+9QHYVyQdPyUCpq4eWpr2B9XmKitHVtscN9r90lWrVPjqA4LQSXc4h4B7QnyxJRrrWMLHgdB04t89/1O/w1cDnyilFU="
+LINE_ACCESS_TOKEN = "hMc9myYeQVze7rzukNnOiGyMBtiFwDZaqRRzhci6iRAaCKAPorOkrjy3iV8HZ3ittnQcBknOd9Ou43Tx+9QHYVyQdPyUCpq4eWpr2B9XmKg2I6ABSl6QSWmL63MwEWbaikVKqpZjLZLm3/gEyXG3MAdB04t89/1O/w1cDnyilFU="
 LINE_SECRET = "1a5c831d35b68b8b107eadaa179dee35"
 SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
 SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
@@ -216,6 +216,7 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
