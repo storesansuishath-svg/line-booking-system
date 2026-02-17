@@ -57,7 +57,6 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         alt_text=f"ตาราง {title}", 
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
-# --- แก้ไขจุดที่ 4: ฟังก์ชันสร้างปุ่มอนุมัติ (วางทับฟังก์ชันเดิม) ---
 def create_approval_flex(booking_id, data):
     user_name = data.get('name', '-')
     return FlexSendMessage(
@@ -74,10 +73,10 @@ def create_approval_flex(booking_id, data):
                     {"type": "text", "text": f"👤 {user_name} ({data.get('dept', '-')})", "size": "sm"},
                     {"type": "text", "text": f"📅 {data.get('date', '-')} - {data.get('end_date', '-')}", "size": "sm", "color": "#1E88E5"},
                     {"type": "text", "text": f"📍 ปลายทาง: {data.get('destination', '-')}", "size": "sm", "color": "#666666"},
-                    {"type": "text", "text": f"📝 {data.get('purpose', '-')}", "size": "sm", "wrap": True}
+                    {"type": "text", "text": f"📝 วัตถุประสงค์: {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-            "footer": { # << เติมส่วนนี้เพื่อให้ปุ่มเด้งครับ
+            "footer": { # ส่วนนี้คือหัวใจที่ทำให้ปุ่มเด้งครับ
                 "type": "box",
                 "layout": "horizontal",
                 "spacing": "sm",
@@ -85,7 +84,7 @@ def create_approval_flex(booking_id, data):
                     {
                         "type": "button",
                         "style": "primary",
-                        "color": "#2E7D32",
+                        "color": "#2E7D32", # สีเขียวตามรูป
                         "action": {
                             "type": "postback",
                             "label": "อนุมัติ",
@@ -96,7 +95,7 @@ def create_approval_flex(booking_id, data):
                     {
                         "type": "button",
                         "style": "primary",
-                        "color": "#C62828",
+                        "color": "#C62828", # สีแดงตามรูป
                         "action": {
                             "type": "postback",
                             "label": "ปฏิเสธ",
@@ -231,4 +230,5 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
