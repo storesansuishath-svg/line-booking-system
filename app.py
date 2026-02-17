@@ -58,9 +58,7 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
 def create_approval_flex(booking_id, data):
-    # ดึงชื่อผู้จองจากข้อมูลที่ Streamlit ส่งมา
-    user_name = data.get('name', '-') 
-    
+    user_name = data.get('name', '-')
     return FlexSendMessage(
         alt_text="มีคำขอจองใหม่",
         contents={
@@ -78,7 +76,7 @@ def create_approval_flex(booking_id, data):
                     {"type": "text", "text": f"📝 วัตถุประสงค์: {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-            "footer": { # << ผมเขียนส่วนปุ่มให้ครบแล้วครับ วางทับได้เลย
+            "footer": { # << ส่วนนี้คือหัวใจที่ทำให้ปุ่มเด้งขึ้นมาใน LINE ครับ
                 "type": "box",
                 "layout": "horizontal",
                 "spacing": "sm",
@@ -232,6 +230,7 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
