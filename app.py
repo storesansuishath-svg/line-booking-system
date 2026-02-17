@@ -8,26 +8,25 @@ from supabase import create_client
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl
 import os
-import requests
 
 app = FastAPI()
 
-# --- 1. ตั้งค่า LINE & SUPABASE (ตรวจสอบค่าใหม่ให้ถูกต้อง) ---
-# นำค่าจาก Channel ใหม่ (BOT1) มาใส่ตรงนี้ครับ
+# --- 1. ตั้งค่า LINE & SUPABASE ---
 LINE_ACCESS_TOKEN = "hMc9myYeQVze7rzukNnOiGyMBtiFwDZaqRRzhci6iRAaCKAPorOkrjy3iV8HZ3ittnQcBknOd9Ou43Tx+9QHYVyQdPyUCpq4eWpr2B9XmKg2I6ABSl6QSWmL63MwEWbaikVKqpZjLZLm3/gEyXG3MAdB04t89/1O/w1cDnyilFU="
 LINE_SECRET = "1a5c831d35b68b8b107eadaa179dee35"
+# ID กลุ่มที่คุณระบุมา
+GROUP_ID = "Cad74a32468ca40051bd7071a6064660d"
 
 SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
-# ⚠️ สำคัญมาก: เพื่อให้ปุ่ม "อนุมัติ" ทำงานได้ 100% 
-# รบกวนนำ "service_role key" (ขึ้นต้นด้วย ey...) มาใส่แทน sb_publishable เดิมครับ
+# ⚠️ แนะนำเปลี่ยนเป็น service_role key เพื่อให้ Bot อัปเดตข้อมูลได้ไม่มีปัญหา
 SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- 2. รายชื่อ Admin ID (ตรวจสอบ ID ของคุณให้ตรง) ---
-ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e", "U39cfc5182354b7fe5174f181983e4d1a"]
+# --- 2. รายชื่อ Admin ---
+ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a"]
 
 # --- 3. ฟังก์ชันสร้างตารางสรุป (Flex Message) ---
 def create_schedule_flex(title, data_rows, color="#0D47A1"):
@@ -61,7 +60,7 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
 
-# --- 4. ฟังก์ชันสร้างปุ่มอนุมัติ (แก้ไขจุดผิดและเพิ่ม Footer สมบูรณ์) ---
+# --- 4. ฟังก์ชันสร้างปุ่มอนุมัติ (ซ่อม Footer ให้สมบูรณ์) ---
 def create_approval_flex(booking_id, data):
     user_name = data.get('name', '-')
     return FlexSendMessage(
@@ -145,26 +144,7 @@ def handle_message(event):
     elif text == "เช็ค ID":
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ID ของคุณ: {event.source.user_id}"))
 
-    elif text == "รออนุมัติ":
-        if event.source.user_id in ADMIN_IDS:
-            res = supabase.table("bookings").select("*").eq("status", "Pending").execute()
-            if not res.data:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text="✅ ไม่มีรายการรออนุมัติครับ", quick_reply=quick_menu))
-            else:
-                line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"มี {len(res.data)} รายการรออนุมัติครับ", quick_reply=quick_menu))
-        else:
-            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 สำหรับ Admin เท่านั้นครับ", quick_reply=quick_menu))
-
-# --- 7. จัดการการกดปุ่ม (Postback) ---
-@handler.add(PostbackEvent)
-def handle_postback(event):
-    if event.source.user_id not in ADMIN_IDS:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="🚫 ไม่มีสิทธิ์ครับ"))
-        return
-
-    data = dict(parse_qsl(event.postback.data))
-    action, booking_id, user_name = data.get('action'), data.get('id'), data.get('user')
-
-    if action and booking_id:
-        status = "Approved" if action == "approve" else "Rejected"
-        # บรรทัดนี้จะทำงานได้ต้องใช้ service_role key ใน SUPABASE_KEY ครับ
+    elif text == "เช็ค ID กลุ่ม":
+        if event.source.type == 'group':
+            group_id = event.source.group_id
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=
