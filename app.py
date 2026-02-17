@@ -58,7 +58,9 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}}
     )
 def create_approval_flex(booking_id, data):
-    user_name = data.get('name', '-')
+    # ดึงชื่อผู้จองจากข้อมูลที่ Streamlit ส่งมา
+    user_name = data.get('name', '-') 
+    
     return FlexSendMessage(
         alt_text="มีคำขอจองใหม่",
         contents={
@@ -76,7 +78,7 @@ def create_approval_flex(booking_id, data):
                     {"type": "text", "text": f"📝 วัตถุประสงค์: {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-            "footer": { # ส่วนนี้คือหัวใจที่ทำให้ปุ่มเด้งครับ
+            "footer": { # << ผมเขียนส่วนปุ่มให้ครบแล้วครับ วางทับได้เลย
                 "type": "box",
                 "layout": "horizontal",
                 "spacing": "sm",
@@ -84,23 +86,23 @@ def create_approval_flex(booking_id, data):
                     {
                         "type": "button",
                         "style": "primary",
-                        "color": "#2E7D32", # สีเขียวตามรูป
+                        "color": "#2E7D32", # สีเขียว
                         "action": {
                             "type": "postback",
                             "label": "อนุมัติ",
                             "data": f"action=approve&id={booking_id}&user={user_name}",
-                            "displayText": f"อนุมัติรายการของ {user_name}"
+                            "displayText": f"อนุมัติการจองของ {user_name}"
                         }
                     },
                     {
                         "type": "button",
                         "style": "primary",
-                        "color": "#C62828", # สีแดงตามรูป
+                        "color": "#C62828", # สีแดง
                         "action": {
                             "type": "postback",
                             "label": "ปฏิเสธ",
                             "data": f"action=reject&id={booking_id}&user={user_name}",
-                            "displayText": f"ปฏิเสธรายการของ {user_name}"
+                            "displayText": f"ปฏิเสธการจองของ {user_name}"
                         }
                     }
                 ]
@@ -230,5 +232,6 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
