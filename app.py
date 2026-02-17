@@ -78,7 +78,7 @@ def create_approval_flex(booking_id, data):
                     {"type": "text", "text": f"📝 วัตถุประสงค์: {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-"footer": {
+            "footer": {
                 "type": "box",
                 "layout": "horizontal",
                 "spacing": "sm",
@@ -93,6 +93,8 @@ def create_approval_flex(booking_id, data):
                     }
                 ]
             }
+        } # <--- ปิด contents (bubble)
+    ) # <--- ปิด FlexSendMessage
 # --- 5. Webhook Handler ---
 @app.post("/callback")
 async def callback(request: Request):
@@ -216,6 +218,7 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
