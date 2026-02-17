@@ -12,8 +12,8 @@ import os
 app = FastAPI()
 
 # --- 1. ตั้งค่า LINE & SUPABASE ---
-LINE_ACCESS_TOKEN = "ILJVHrD24hZCe/stNR6wKxglGerAEtefHwB0HlDzq2vx5zc+hx0JoS2fDQe6BFzsOCwMD47HldTFuCBve9JRa1uAlAuq24sK2Iv/C5T/+p8Vkh1ppr3MKOb0ghP9MGO1kVj4UmgSzdyrI8P0vKHprgdB04t89/1O/w1cDnyilFU="
-LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
+LINE_ACCESS_TOKEN = "rw5l8FX48+sbMx3PpdE9+gj48K4dD96ii8O5yM/fZZ+4LbH85kdp3Szu/dEiPq4otnQcBknOd9Ou43Tx+9QHYVyQdPyUCpq4eWpr2B9XmKitHVtscN9r90lWrVPjqA4LQSXc4h4B7QnyxJRrrWMLHgdB04t89/1O/w1cDnyilFU="
+LINE_SECRET = "1a5c831d35b68b8b107eadaa179dee35"
 SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
 SUPABASE_KEY = "sb_publishable_hvNQEPvuEAlXfVeCzpy7Ug_kzvihQqq"
 
@@ -78,37 +78,21 @@ def create_approval_flex(booking_id, data):
                     {"type": "text", "text": f"📝 วัตถุประสงค์: {data.get('purpose', '-')}", "size": "sm", "wrap": True}
                 ]
             },
-            "footer": { # << ส่วนนี้คือจุดที่ต้องแก้ไขให้สมบูรณ์ ปุ่มถึงจะเด้งครับ
+"footer": {
                 "type": "box",
                 "layout": "horizontal",
                 "spacing": "sm",
                 "contents": [
                     {
-                        "type": "button",
-                        "style": "primary",
-                        "color": "#2E7D32", # สีเขียวอนุมัติ
-                        "action": {
-                            "type": "postback",
-                            "label": "อนุมัติ",
-                            "data": f"action=approve&id={booking_id}&user={user_name}",
-                            "displayText": f"อนุมัติรายการของ {user_name}"
-                        }
+                        "type": "button", "style": "primary", "color": "#2E7D32", 
+                        "action": {"type": "postback", "label": "อนุมัติ", "data": f"action=approve&id={booking_id}&user={user_name}"}
                     },
                     {
-                        "type": "button",
-                        "style": "primary",
-                        "color": "#C62828", # สีแดงปฏิเสธ
-                        "action": {
-                            "type": "postback",
-                            "label": "ปฏิเสธ",
-                            "data": f"action=reject&id={booking_id}&user={user_name}",
-                            "displayText": f"ปฏิเสธรายการของ {user_name}"
-                        }
+                        "type": "button", "style": "primary", "color": "#C62828", 
+                        "action": {"type": "postback", "label": "ปฏิเสธ", "data": f"action=reject&id={booking_id}&user={user_name}"}
                     }
                 ]
             }
-        }
-    )
 # --- 5. Webhook Handler ---
 @app.post("/callback")
 async def callback(request: Request):
@@ -232,6 +216,7 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
