@@ -127,7 +127,7 @@ def handle_message(event):
 
     elif text == "ดูตารางรถ":
         now = datetime.now().isoformat()
-        car_list = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG ขับเอง"]
+        car_list = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG"]
         res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).in_("resource", car_list).order("start_time").execute()
         line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางรถ", res.data, "#1E88E5"))
 
@@ -204,5 +204,6 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
