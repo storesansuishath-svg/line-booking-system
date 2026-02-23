@@ -179,14 +179,30 @@ def handle_postback(event):
                 create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
             ])
 
-# --- 8. รับ Notify จาก Streamlit ---
+# --- 8. รับ Notify จาก Streamlit (แก้ไขใหม่เพื่อให้รองรับการอนุมัติ) ---
 @app.post("/notify")
 async def notify_booking(request: Request):
     data = await request.json()
-    # แจ้งเตือนรายการจองใหม่เข้า "กลุ่ม" ทันที
-    line_bot_api.push_message(GROUP_ID, create_approval_flex(data.get("id"), data))
+    status = data.get("status", "Pending")
+    
+    # ถ้าสถานะเป็น "Approved" (ส่งมาจากตอนพี่กดปุ่มอนุมัติในเว็บ)
+    if status == "Approved":
+        msg = f"✅ อนุมัติการจองแล้ว\n" \
+              f"----------------------\n" \
+              f"🚗 รายการ: {data.get('resource')}\n" \
+              f"👤 ผู้จอง: {data.get('name')} ({data.get('dept')})\n" \
+              f"📅 เวลา: {data.get('date')}\n" \
+              f"📍 ปลายทาง: {data.get('destination', '-')}\n" \
+              f"🎯 วัตถุประสงค์: {data.get('purpose', '-')}"
+        
+        # ✅ ส่งแจ้งเตือนแบบ Push เข้ากลุ่มทันที
+        line_bot_api.push_message(GROUP_ID, TextSendMessage(text=msg))
+    
+    else:
+        # 📝 ถ้าเป็นรายการจองใหม่ (สถานะ Pending) ให้ส่งแบบ "ปุ่มกดอนุมัติ" เหมือนเดิม
+        line_bot_api.push_message(GROUP_ID, create_approval_flex(data.get("id"), data))
+        
     return {"status": "success"}
-
 # --- 9. แจ้งเตือนล่วงหน้า 15 นาที ---
 @app.get("/check-reminders")
 def check_reminders():
@@ -204,6 +220,7 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
