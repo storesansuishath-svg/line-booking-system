@@ -12,8 +12,8 @@ import os
 app = FastAPI()
 
 # --- 1. ตั้งค่า LINE & SUPABASE ---
-LINE_ACCESS_TOKEN = "J8hIyNLPI4iXkTI/e6UEIuL1RaWFO4o/TcXM1nZqJRLTi4VAEpDZX92JKiDJieXF1Fr75xvlUMaxPJJHD0fqsebJWtiLhHW6pLw4ikKupIN7AkIHhP1KUN+EaWF8yB9DmAkkVBZ9x5yvenHCCaEJjwdB04t89/1O/w1cDnyilFU="
-LINE_SECRET = "066587b70b0370b3db7139fb86e78a5e"
+LINE_ACCESS_TOKEN = "M1IZz0slVgNhN6YFpPtyVdh0afSbYn8SIohY1W17j565KrJLjq8CLxl7xqk9DCZ85xBD9kCPkCiT8SFkzT6wQrnfih35etUHwIt8z30a6EHHst3/cPI3xEJe1b3pBvtcqoU5aHEoxRdS3H53lo7AbgdB04t89/1O/w1cDnyilFU="
+LINE_SECRET = "dd5d400dcba77fdfe56a00543f5b4a22"
 # ID กลุ่มที่คุณต้องการให้แจ้งเตือน
 GROUP_ID = "Cad74a32468ca40051bd7071a6064660d"
 
@@ -224,6 +224,7 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
 
 
