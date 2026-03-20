@@ -12,8 +12,8 @@ import os
 app = FastAPI()
 
 # --- 1. ตั้งค่า LINE & SUPABASE ---
-LINE_ACCESS_TOKEN = "KI31UgMHZPVus00wBuq/o7nHd6k0sYwa/NF+qvhGDxxCG5RrQkh/GTvZ3M4jCfKrEUY/csnkHrVxnbJ3BgREuMNtb3Xxa4q07ZJ2/Svk0BjquryXBZF/0tdywHfdowORgvuahTB0Qk1bsZltCfupmQdB04t89/1O/w1cDnyilFU="
-LINE_SECRET = "dcf57dcaf321a1ac1c37866e5fa61f77"
+LINE_ACCESS_TOKEN = "ILJVHrD24hZCe/stNR6wKxglGerAEtefHwB0HlDzq2vx5zc+hx0JoS2fDQe6BFzsOCwMD47HldTFuCBve9JRa1uAlAuq24sK2Iv/C5T/+p8Vkh1ppr3MKOb0ghP9MGO1kVj4UmgSzdyrI8P0vKHprgdB04t89/1O/w1cDnyilFU="
+LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
 # ID กลุ่มที่คุณต้องการให้แจ้งเตือน
 GROUP_ID = "Cad74a32468ca40051bd7071a6064660d"
 
