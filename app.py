@@ -195,21 +195,11 @@ def handle_postback(event):
         status = "Approved" if action == "approve" else "Rejected"
         supabase.table("bookings").update({"status": status}).eq("id", booking_id).execute()
         
+        # กำหนดข้อความตอบกลับ
         msg_text = f"✅ อนุมัติคุณ {user_name} เรียบร้อย" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
+        
+        # ตอบกลับแค่ข้อความยืนยันการทำรายการเพียงอย่างเดียว ตัดการส่งตารางออก
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg_text))
-
-        if action == "approve":
-            now = datetime.now()
-            now_iso = now.isoformat()
-            three_days_later = (now + timedelta(days=3)).isoformat()
-            
-            # ดึงเฉพาะรายการที่อนุมัติแล้ว และไม่เกิน 3 วันข้างหน้า
-            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).lte("start_time", three_days_later).order("start_time").execute()
-            
-            line_bot_api.push_message(GROUP_ID, [
-                TextSendMessage(text="📢 รายการได้รับการอนุมัติ! ตารางงาน 3 วันล่วงหน้ามีดังนี้:"),
-                create_schedule_flex("📅 ตารางการใช้งาน (3 วัน)", res.data, "#2E7D32")
-            ])
 # --- 8. รับ Notify จาก Streamlit (แก้ไขใหม่เพื่อให้รองรับการอนุมัติ) ---
 @app.post("/notify")
 async def notify_booking(request: Request):
