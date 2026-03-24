@@ -216,17 +216,8 @@ async def notify_booking(request: Request):
               f"📍 ปลายทาง: {data.get('destination', '-')}\n" \
               f"🎯 วัตถุประสงค์: {data.get('purpose', '-')}"
         
-        # ดึงข้อมูล 3 วันล่วงหน้าเพื่อแนบไปกับข้อความอนุมัติด้วย (เซฟโควต้า ส่งพร้อมกันทีเดียว)
-        now = datetime.now()
-        now_iso = now.isoformat()
-        three_days_later = (now + timedelta(days=3)).isoformat()
-        res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).lte("start_time", three_days_later).order("start_time").execute()
-
-        # ✅ ส่งแจ้งเตือนแบบ Push เข้ากลุ่มทันที (ส่งข้อความ + Flex ตาราง 3 วัน)
-        line_bot_api.push_message(GROUP_ID, [
-            TextSendMessage(text=msg),
-            create_schedule_flex("📅 ตารางการใช้งาน (3 วัน)", res.data, "#2E7D32")
-        ])
+        # ✅ ส่งแจ้งเตือนแบบ Push เข้ากลุ่มทันที (ส่งเฉพาะข้อความยืนยัน)
+        line_bot_api.push_message(GROUP_ID, TextSendMessage(text=msg))
     
     else:
         # 📝 ถ้าเป็นรายการจองใหม่ (สถานะ Pending) ให้ส่งแบบ "ปุ่มกดอนุมัติ" เหมือนเดิม
