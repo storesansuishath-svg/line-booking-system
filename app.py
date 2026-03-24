@@ -119,9 +119,12 @@ async def callback(request: Request):
 def handle_message(event):
     text = event.message.text.strip()
     
+    # เพิ่มเมนูให้ครอบคลุมการดูแบบ 3 วัน และแบบทั้งหมด (รองรับสูงสุด 13 ปุ่ม)
     quick_menu = QuickReply(items=[
-        QuickReplyButton(action=MessageAction(label="🚗 ตารางรถ", text="ดูตารางรถ")),
-        QuickReplyButton(action=MessageAction(label="🏢 ตารางห้อง", text="ดูตารางห้อง")),
+        QuickReplyButton(action=MessageAction(label="🚗 รถ (3วัน)", text="ดูตารางรถ")),
+        QuickReplyButton(action=MessageAction(label="🏢 ห้อง (3วัน)", text="ดูตารางห้อง")),
+        QuickReplyButton(action=MessageAction(label="🚗 รถ (ทั้งหมด)", text="ดูตารางรถทั้งหมด")),
+        QuickReplyButton(action=MessageAction(label="🏢 ห้อง (ทั้งหมด)", text="ดูตารางห้องทั้งหมด")),
         QuickReplyButton(action=MessageAction(label="📝 จองใหม่", text="จอง")),
         QuickReplyButton(action=MessageAction(label="⏳ รออนุมัติ", text="รออนุมัติ"))
     ])
@@ -129,17 +132,37 @@ def handle_message(event):
     if text in ["ดู", "เมนู", "สวัสดี", "ทัก", "หน้าหลัก"]:
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text="เลือกรายการที่ต้องการครับ 👇", quick_reply=quick_menu))
 
-    elif text == "ดูตารางรถ":
-        now = datetime.now().isoformat()
-        car_list = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG", "MG (เนก)"]
-        res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).in_("resource", car_list).order("start_time").execute()
-        line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางรถ", res.data, "#1E88E5"))
+    # --- ส่วนที่ 1: ดูตารางปัจจุบัน (3 วันล่วงหน้า) ---
+    elif text in ["ดูตารางรถ", "ดูตารางห้อง"]:
+        now = datetime.now()
+        now_iso = now.isoformat()
+        # คำนวณเวลาล่วงหน้า 3 วัน
+        three_days_later = (now + timedelta(days=3)).isoformat() 
+        
+        if text == "ดูตารางรถ":
+            car_list = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG", "MG (เนก)"]
+            # เพิ่ม .lte("start_time", three_days_later) เพื่อจำกัดเวลา
+            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).lte("start_time", three_days_later).in_("resource", car_list).order("start_time").execute()
+            line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางรถ (3 วัน)", res.data, "#1E88E5"))
+            
+        elif text == "ดูตารางห้อง":
+            room_list = ["ห้องชั้น 1 (ห้องใหญ่)", "ห้องชั้น 2", "ห้อง VIP", "ห้องชั้นลอย", "ห้อง Production"]
+            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).lte("start_time", three_days_later).in_("resource", room_list).order("start_time").execute()
+            line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางห้อง (3 วัน)", res.data, "#43A047"))
 
-    elif text == "ดูตารางห้อง":
-        now = datetime.now().isoformat()
-        room_list = ["ห้องชั้น 1 (ห้องใหญ่)", "ห้องชั้น 2", "ห้อง VIP", "ห้องชั้นลอย", "ห้อง Production"]
-        res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now).in_("resource", room_list).order("start_time").execute()
-        line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางห้อง", res.data, "#43A047"))
+    # --- ส่วนที่ 2: ดูตารางทั้งหมด (ปัจจุบันถึงอนาคตทั้งหมด) ---
+    elif text in ["ดูตารางรถทั้งหมด", "ดูตารางห้องทั้งหมด"]:
+        now_iso = datetime.now().isoformat()
+        
+        if text == "ดูตารางรถทั้งหมด":
+            car_list = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG", "MG (เนก)"]
+            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).in_("resource", car_list).order("start_time").execute()
+            line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางรถ (ทั้งหมด)", res.data, "#1E88E5"))
+            
+        elif text == "ดูตารางห้องทั้งหมด":
+            room_list = ["ห้องชั้น 1 (ห้องใหญ่)", "ห้องชั้น 2", "ห้อง VIP", "ห้องชั้นลอย", "ห้อง Production"]
+            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).in_("resource", room_list).order("start_time").execute()
+            line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางห้อง (ทั้งหมด)", res.data, "#43A047"))
 
     elif text == "จอง":
         url = "https://office-booking-system-hll8ub77ixfgmj2s4slbu4.streamlit.app/"
@@ -176,13 +199,17 @@ def handle_postback(event):
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg_text))
 
         if action == "approve":
-            now_iso = datetime.now().isoformat()
-            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).order("start_time").execute()
+            now = datetime.now()
+            now_iso = now.isoformat()
+            three_days_later = (now + timedelta(days=3)).isoformat()
+            
+            # ดึงเฉพาะรายการที่อนุมัติแล้ว และไม่เกิน 3 วันข้างหน้า
+            res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).lte("start_time", three_days_later).order("start_time").execute()
+            
             line_bot_api.push_message(GROUP_ID, [
-                TextSendMessage(text="📢 รายการได้รับการอนุมัติ! ตารางงานล่าสุดมีดังนี้:"),
-                create_schedule_flex("📅 ตารางการใช้งานปัจจุบัน", res.data, "#2E7D32")
+                TextSendMessage(text="📢 รายการได้รับการอนุมัติ! ตารางงาน 3 วันล่วงหน้ามีดังนี้:"),
+                create_schedule_flex("📅 ตารางการใช้งาน (3 วัน)", res.data, "#2E7D32")
             ])
-
 # --- 8. รับ Notify จาก Streamlit (แก้ไขใหม่เพื่อให้รองรับการอนุมัติ) ---
 @app.post("/notify")
 async def notify_booking(request: Request):
@@ -193,14 +220,23 @@ async def notify_booking(request: Request):
     if status == "Approved":
         msg = f"✅ อนุมัติการจองแล้ว\n" \
               f"----------------------\n" \
-              f"🚗 รายการ: {data.get('resource')}\n" \
+              f"🚗/🏢 รายการ: {data.get('resource')}\n" \
               f"👤 ผู้จอง: {data.get('name')} ({data.get('dept')})\n" \
               f"📅 เวลา: {data.get('date')}\n" \
               f"📍 ปลายทาง: {data.get('destination', '-')}\n" \
               f"🎯 วัตถุประสงค์: {data.get('purpose', '-')}"
         
-        # ✅ ส่งแจ้งเตือนแบบ Push เข้ากลุ่มทันที
-        line_bot_api.push_message(GROUP_ID, TextSendMessage(text=msg))
+        # ดึงข้อมูล 3 วันล่วงหน้าเพื่อแนบไปกับข้อความอนุมัติด้วย (เซฟโควต้า ส่งพร้อมกันทีเดียว)
+        now = datetime.now()
+        now_iso = now.isoformat()
+        three_days_later = (now + timedelta(days=3)).isoformat()
+        res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).lte("start_time", three_days_later).order("start_time").execute()
+
+        # ✅ ส่งแจ้งเตือนแบบ Push เข้ากลุ่มทันที (ส่งข้อความ + Flex ตาราง 3 วัน)
+        line_bot_api.push_message(GROUP_ID, [
+            TextSendMessage(text=msg),
+            create_schedule_flex("📅 ตารางการใช้งาน (3 วัน)", res.data, "#2E7D32")
+        ])
     
     else:
         # 📝 ถ้าเป็นรายการจองใหม่ (สถานะ Pending) ให้ส่งแบบ "ปุ่มกดอนุมัติ" เหมือนเดิม
