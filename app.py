@@ -126,7 +126,8 @@ def handle_message(event):
         QuickReplyButton(action=MessageAction(label="🚗 รถ (ทั้งหมด)", text="ดูตารางรถทั้งหมด")),
         QuickReplyButton(action=MessageAction(label="🏢 ห้อง (ทั้งหมด)", text="ดูตารางห้องทั้งหมด")),
         QuickReplyButton(action=MessageAction(label="📝 จองใหม่", text="จอง")),
-        QuickReplyButton(action=MessageAction(label="⏳ รออนุมัติ", text="รออนุมัติ"))
+        QuickReplyButton(action=MessageAction(label="⏳ รออนุมัติ", text="รออนุมัติ")),
+        QuickReplyButton(action=MessageAction(label="⭐ ประเมิน", text="ประเมิน"))
     ])
 
     if text in ["ดู", "เมนู", "สวัสดี", "ทัก", "หน้าหลัก"]:
@@ -167,6 +168,11 @@ def handle_message(event):
     elif text == "จอง":
         url = "https://office-booking-system-hll8ub77ixfgmj2s4slbu4.streamlit.app/"
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"กดลิงก์เพื่อจองครับ:\n{url}", quick_reply=quick_menu))
+        
+    elif text == "ประเมิน":
+        url = "https://office-booking-system-hll8ub77ixfgmj2s4slbu4.streamlit.app/"
+        msg = f"⭐ การประเมินทำผ่านระบบเว็บครับ\nกดลิงก์ด้านล่าง แล้วเลือกเมนูซ้ายมือ '⭐ ประเมินการใช้งาน' ได้เลยครับ:\n{url}"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg, quick_reply=quick_menu))
 
     elif text == "เช็ค ID":
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ID ของคุณ: {event.source.user_id}"))
@@ -241,13 +247,3 @@ def check_reminders():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
-
-
-
-
-
-
-
-
