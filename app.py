@@ -17,8 +17,8 @@ supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 2. ดึงค่าตั้งค่าจากฐานข้อมูล ---
 # Fallback ชั่วคราวกรณีฐานข้อมูลยังไม่ได้ตังค่า
-LINE_ACCESS_TOKEN = "ILJVHrD24hZCe/stNR6wKxglGerAEtefHwB0HlDzq2vx5zc+hx0JoS2fDQe6BFzsOCwMD47HldTFuCBve9JRa1uAlAuq24sK2Iv/C5T/+p8Vkh1ppr3MKOb0ghP9MGO1kVj4UmgSzdyrI8P0vKHprgdB04t89/1O/w1cDnyilFU="
-LINE_SECRET = "92765784656c2d17a334add0233d9e2f"
+LINE_ACCESS_TOKEN = "hMc9myYeQVze7rzukNnOiGyMBtiFwDZaqRRzhci6iRAaCKAPorOkrjy3iV8HZ3ittnQcBknOd9Ou43Tx+9QHYVyQdPyUCpq4eWpr2B9XmKg2I6ABSl6QSWmL63MwEWbaikVKqpZjLZLm3/gEyXG3MAdB04t89/1O/w1cDnyilFU="
+LINE_SECRET = "1a5c831d35b68b8b107eadaa179dee35"
 GROUP_ID = "Cad74a32468ca40051bd7071a6064660d"
 
 try:
