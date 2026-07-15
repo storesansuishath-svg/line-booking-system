@@ -7,6 +7,7 @@ from linebot.models import (
 from supabase import create_client
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl
+import re
 
 app = FastAPI()
 
@@ -39,6 +40,15 @@ async def home():
 
 ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a","U7b5850883e4b9b1ca2b172b164ceaf56","Ub9bbccb167730a5b2a0908ed6b20e8ec"]
 
+def extract_google_maps_url(value):
+    """Return a safe Google Maps URL from a destination field, if one exists."""
+    for url in re.findall(r"https?://[^\s<>()]+", str(value or "")):
+        url = url.rstrip(".,;:!?)]}")
+        host = url.lower()
+        if "maps.app.goo.gl" in host or "google.com/maps" in host or "maps.google.com" in host:
+            return url
+    return None
+
 def create_schedule_flex(title, data_rows, color="#0D47A1"):
     if not data_rows:
         return TextSendMessage(text=f"✅ ไม่มีรายการจองสำหรับ {title} ในขณะนี้ครับ")
@@ -63,6 +73,14 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
                 {"type": "text", "text": f"📝 {row.get('purpose', '-')}", "size": "xs", "color": "#666666", "wrap": True}
             ]
         })
+        map_url = extract_google_maps_url(row.get('destination', ''))
+        if map_url:
+            contents.append({
+                "type": "button", "style": "link", "height": "sm", "margin": "none",
+                "action": {
+                    "type": "uri", "label": "🗺️ เปิด Google Maps", "uri": map_url
+                }
+            })
         contents.append({"type": "separator", "margin": "sm"})
     return FlexSendMessage(alt_text=f"ตาราง {title}", contents={"type": "bubble", "body": {"type": "box", "layout": "vertical", "contents": contents}})
 
