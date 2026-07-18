@@ -40,6 +40,37 @@ async def home():
 
 ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a","U7b5850883e4b9b1ca2b172b164ceaf56","Ub9bbccb167730a5b2a0908ed6b20e8ec"]
 
+# รถชื่อแตกต่างกันแต่เป็นรถคันเดียวกัน ต้องใช้คิวร่วมกัน
+RESOURCE_CONFLICT_GROUPS = {
+    "MG": ["MG", "MG (เนก)"],
+    "MG (เนก)": ["MG", "MG (เนก)"],
+}
+
+def get_conflict_resources(resource):
+    resource_name = str(resource).strip()
+    return RESOURCE_CONFLICT_GROUPS.get(resource_name, [resource_name])
+
+def parse_booking_datetime(value):
+    value_text = str(value).strip()
+    if value_text.endswith("Z"):
+        value_text = f"{value_text[:-1]}+00:00"
+    return datetime.fromisoformat(value_text).replace(tzinfo=None)
+
+def check_booking_conflict(resource, start_time_iso, end_time_iso, exclude_booking_id=None):
+    conflict_resources = get_conflict_resources(resource)
+    result = supabase.table("bookings").select("*").in_("resource", conflict_resources).in_("status", ["Approved", "Pending"]).execute()
+    new_start = parse_booking_datetime(start_time_iso)
+    new_end = parse_booking_datetime(end_time_iso)
+
+    for item in result.data or []:
+        if exclude_booking_id is not None and str(item.get("id")) == str(exclude_booking_id):
+            continue
+        existing_start = parse_booking_datetime(item["start_time"])
+        existing_end = parse_booking_datetime(item["end_time"])
+        if new_start < existing_end and new_end > existing_start:
+            return True, item.get("requester", "-"), item.get("status", "-")
+    return False, None, None
+
 def extract_google_maps_url(value):
     """Return a safe Google Maps URL from a destination field, if one exists."""
     for url in re.findall(r"https?://[^\s<>()]+", str(value or "")):
@@ -194,10 +225,45 @@ def handle_postback(event):
     data = dict(parse_qsl(event.postback.data))
     action, booking_id, user_name = data.get('action'), data.get('id'), data.get('user')
     if action and booking_id:
-        status = "Approved" if action == "approve" else "Rejected"
-        supabase.table("bookings").update({"status": status}).eq("id", booking_id).execute()
-        msg_text = f"✅ อนุมัติคุณ {user_name} เรียบร้อย" if action == "approve" else f"❌ ปฏิเสธคุณ {user_name} แล้ว"
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg_text))
+        try:
+            if action == "approve":
+                booking_result = supabase.table("bookings").select("*").eq("id", booking_id).execute()
+                if not booking_result.data:
+                    line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ ไม่พบรายการจองนี้ อาจถูกลบไปแล้ว"))
+                    return
+
+                booking = booking_result.data[0]
+                requester = booking.get("requester", user_name or "-")
+                if booking.get("status") == "Approved":
+                    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"ℹ️ รายการของคุณ {requester} อนุมัติไปแล้ว"))
+                    return
+                if booking.get("status") != "Pending":
+                    line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"❌ รายการของคุณ {requester} ไม่ได้อยู่ในสถานะรออนุมัติ"))
+                    return
+
+                is_conflict, conflict_user, conflict_status = check_booking_conflict(
+                    booking["resource"], booking["start_time"], booking["end_time"], exclude_booking_id=booking_id
+                )
+                if is_conflict:
+                    conflict_label = "ถูกจองแล้ว" if conflict_status == "Approved" else "มีรายการอื่นรออนุมัติ"
+                    line_bot_api.reply_message(
+                        event.reply_token,
+                        TextSendMessage(text=f"❌ อนุมัติไม่ได้ คิว {booking['resource']} ชนกัน: {conflict_label} โดยคุณ {conflict_user}")
+                    )
+                    return
+
+                supabase.table("bookings").update({"status": "Approved"}).eq("id", booking_id).execute()
+                msg_text = f"✅ อนุมัติคุณ {requester} เรียบร้อย"
+            elif action == "reject":
+                supabase.table("bookings").update({"status": "Rejected"}).eq("id", booking_id).execute()
+                msg_text = f"❌ ปฏิเสธคุณ {user_name} แล้ว"
+            else:
+                msg_text = "❌ คำสั่งไม่ถูกต้อง"
+
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text=msg_text))
+        except Exception as e:
+            print(f"Approval error: {e}")
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ ตรวจสอบหรือบันทึกการอนุมัติไม่สำเร็จ กรุณาลองใหม่"))
 
 @app.post("/notify")
 async def notify_booking(request: Request):
