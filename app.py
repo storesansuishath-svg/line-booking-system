@@ -7,13 +7,17 @@ from linebot.models import (
 from supabase import create_client
 from datetime import datetime, timedelta
 from urllib.parse import parse_qsl
+import os
 import re
 
 app = FastAPI()
 
 # --- 1. ตั้งค่า SUPABASE ---
-SUPABASE_URL = "https://qejqynbxdflwebzzwfzu.supabase.co"
-SUPABASE_KEY = "**"
+SUPABASE_URL = os.getenv("SUPABASE_URL", "https://qejqynbxdflwebzzwfzu.supabase.co")
+# Keep credentials out of source control.  Render supplies this value at runtime.
+SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
+if not SUPABASE_KEY:
+    raise RuntimeError("Missing SUPABASE_KEY. Set it in the Render Environment settings.")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 # --- 2. ดึงค่าตั้งค่าจากฐานข้อมูล ---
