@@ -28,9 +28,10 @@ GROUP_ID = os.getenv("GROUP_ID", "")
 try:
     set_res = supabase.table("app_settings").select("*").eq("id", 1).execute()
     if set_res.data:
-        LINE_ACCESS_TOKEN = set_res.data[0]['line_token']
-        LINE_SECRET = set_res.data[0]['line_secret']
-        GROUP_ID = set_res.data[0]['group_id']
+        # Render environment values take priority; database values remain a fallback.
+        LINE_ACCESS_TOKEN = LINE_ACCESS_TOKEN or set_res.data[0]['line_token']
+        LINE_SECRET = LINE_SECRET or set_res.data[0]['line_secret']
+        GROUP_ID = GROUP_ID or set_res.data[0]['group_id']
 except Exception as e:
     print(f"Database settings load error: {e}")
 
