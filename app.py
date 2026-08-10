@@ -9,31 +9,32 @@ from datetime import datetime, timedelta
 from urllib.parse import parse_qsl
 import os
 import re
+import hmac
+from zoneinfo import ZoneInfo
 
 app = FastAPI()
+THAILAND_TZ = ZoneInfo("Asia/Bangkok")
 
-# --- 1. ตั้งค่า SUPABASE ---
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://qejqynbxdflwebzzwfzu.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
-if not SUPABASE_KEY:
-    raise RuntimeError("Missing SUPABASE_KEY. Set it in Render Environment settings.")
+
+def thai_wall_now():
+    """Return Thailand local wall-clock time used by legacy booking rows."""
+    return datetime.now(THAILAND_TZ).replace(tzinfo=None)
+
+# --- 1. Runtime secrets (Render Environment Variables only) ---
+def require_environment(name, default=None):
+    value = os.getenv(name, default or "").strip()
+    if not value:
+        raise RuntimeError(f"Missing {name}. Configure it in Render Environment Variables.")
+    return value
+
+
+SUPABASE_URL = require_environment("SUPABASE_URL", "https://qejqynbxdflwebzzwfzu.supabase.co")
+SUPABASE_KEY = require_environment("SUPABASE_KEY")
+LINE_ACCESS_TOKEN = require_environment("LINE_ACCESS_TOKEN")
+LINE_SECRET = require_environment("LINE_SECRET")
+GROUP_ID = require_environment("LINE_GROUP_ID")
+INTERNAL_API_TOKEN = require_environment("INTERNAL_API_TOKEN")
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-# --- 2. ดึงค่าตั้งค่าจากฐานข้อมูล ---
-# Fallback ชั่วคราวกรณีฐานข้อมูลยังไม่ได้ตังค่า
-LINE_ACCESS_TOKEN = os.getenv("LINE_ACCESS_TOKEN", "")
-LINE_SECRET = os.getenv("LINE_SECRET", "")
-GROUP_ID = os.getenv("GROUP_ID", "")
-
-try:
-    set_res = supabase.table("app_settings").select("*").eq("id", 1).execute()
-    if set_res.data:
-        # Render environment values take priority; database values remain a fallback.
-        LINE_ACCESS_TOKEN = LINE_ACCESS_TOKEN or set_res.data[0]['line_token']
-        LINE_SECRET = LINE_SECRET or set_res.data[0]['line_secret']
-        GROUP_ID = GROUP_ID or set_res.data[0]['group_id']
-except Exception as e:
-    print(f"Database settings load error: {e}")
 
 line_bot_api = LineBotApi(LINE_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_SECRET)
@@ -41,6 +42,12 @@ handler = WebhookHandler(LINE_SECRET)
 @app.get("/")
 async def home():
     return {"status": "Online", "message": "Sansuisha Booking System is Ready"}
+
+
+def require_internal_token(request: Request):
+    supplied_token = request.headers.get("X-Internal-Token", "")
+    if not hmac.compare_digest(supplied_token, INTERNAL_API_TOKEN):
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a","U7b5850883e4b9b1ca2b172b164ceaf56","Ub9bbccb167730a5b2a0908ed6b20e8ec"]
 
@@ -72,8 +79,8 @@ def check_booking_conflict(resource, start_time_iso, end_time_iso, exclude_booki
         existing_start = parse_booking_datetime(item["start_time"])
         existing_end = parse_booking_datetime(item["end_time"])
         if new_start < existing_end and new_end > existing_start:
-            return True, item.get("requester", "-"), item.get("status", "-")
-    return False, None, None
+            return True, item.get("requester", "-"), item.get("status", "-"), bool(item.get("is_executive_booking", False))
+    return False, None, None, False
 
 def extract_google_maps_url(value):
     """Return a safe Google Maps URL from a destination field, if one exists."""
@@ -92,6 +99,9 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         {"type": "separator", "margin": "md"}
     ]
     for i, row in enumerate(data_rows):
+        is_executive = bool(row.get("is_executive_booking", False))
+        text_weight = "bold" if is_executive else "regular"
+        label = "👔 ผู้บริหาร · " if is_executive else ""
         try:
             t_start = datetime.fromisoformat(row['start_time']).strftime('%H:%M')
             t_end = datetime.fromisoformat(row['end_time']).strftime('%H:%M')
@@ -101,11 +111,11 @@ def create_schedule_flex(title, data_rows, color="#0D47A1"):
         contents.append({
             "type": "box", "layout": "vertical", "margin": "md",
             "contents": [
-                {"type": "text", "text": f"{i+1}. {row['resource']}", "weight": "bold", "color": "#333333"},
-                {"type": "text", "text": f"📅 {date_str} | ⏰ {t_start}-{t_end}", "size": "sm", "color": color},
-                {"type": "text", "text": f"👤 {row['requester']} ({row.get('dept', '-')})", "size": "xs", "color": "#666666"},
-                {"type": "text", "text": f"📍 ปลายทาง: {row.get('destination', '-')}", "size": "xs", "color": "#666666", "wrap": True},
-                {"type": "text", "text": f"📝 {row.get('purpose', '-')}", "size": "xs", "color": "#666666", "wrap": True}
+                {"type": "text", "text": f"{i+1}. {label}{row['resource']}", "weight": "bold", "color": "#333333"},
+                {"type": "text", "text": f"📅 {date_str} | ⏰ {t_start}-{t_end}", "size": "sm", "color": color, "weight": text_weight},
+                {"type": "text", "text": f"👤 {row['requester']} ({row.get('dept', '-')})", "size": "xs", "color": "#666666", "weight": text_weight},
+                {"type": "text", "text": f"📍 ปลายทาง: {row.get('destination', '-')}", "size": "xs", "color": "#666666", "weight": text_weight, "wrap": True},
+                {"type": "text", "text": f"📝 {row.get('purpose', '-')}", "size": "xs", "color": "#666666", "weight": text_weight, "wrap": True}
             ]
         })
         map_url = extract_google_maps_url(row.get('destination', ''))
@@ -182,7 +192,7 @@ def handle_message(event):
         SYS_CARS = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG", "MG (เนก)"]
         SYS_ROOMS = ["ห้องชั้น 1 (ห้องใหญ่)", "ห้องชั้น 2", "ห้อง VIP", "ห้องชั้นลอย", "ห้อง Production"]
 
-    now = datetime.now()
+    now = thai_wall_now()
     now_iso = now.isoformat()
     three_days_later = (now + timedelta(days=3)).isoformat() 
 
@@ -197,11 +207,17 @@ def handle_message(event):
     elif text == "ดูตารางรถทั้งหมด":
         res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).in_("resource", SYS_CARS).order("start_time").execute()
         line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางรถ (ทั้งหมด)", res.data, "#1E88E5"))
-        
-    elif text == "ผู้บริหาร":
-        res = supabase.table("bookings").select("*").eq("status", "Approved").eq("is_executive_booking", True).gt("end_time", now_iso).in_("resource", SYS_CARS).order("start_time").execute()
-        line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางผู้บริหาร", res.data, "#7B1FA2"))
 
+    elif text == "ผู้บริหาร":
+        # Executive entries are already approved; show only the shared car queue.
+        res = (
+            supabase.table("bookings").select("*")
+            .eq("status", "Approved").eq("is_executive_booking", True)
+            .gt("end_time", now_iso).in_("resource", SYS_CARS)
+            .order("start_time").execute()
+        )
+        line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางผู้บริหาร", res.data, "#7B1FA2"))
+        
     elif text == "ดูตารางห้องทั้งหมด":
         res = supabase.table("bookings").select("*").eq("status", "Approved").gt("end_time", now_iso).in_("resource", SYS_ROOMS).order("start_time").execute()
         line_bot_api.reply_message(event.reply_token, create_schedule_flex("ตารางห้อง (ทั้งหมด)", res.data, "#43A047"))
@@ -250,11 +266,11 @@ def handle_postback(event):
                     line_bot_api.reply_message(event.reply_token, TextSendMessage(text=f"❌ รายการของคุณ {requester} ไม่ได้อยู่ในสถานะรออนุมัติ"))
                     return
 
-                is_conflict, conflict_user, conflict_status = check_booking_conflict(
+                is_conflict, conflict_user, conflict_status, is_executive_conflict = check_booking_conflict(
                     booking["resource"], booking["start_time"], booking["end_time"], exclude_booking_id=booking_id
                 )
                 if is_conflict:
-                    conflict_label = "ถูกจองแล้ว" if conflict_status == "Approved" else "มีรายการอื่นรออนุมัติ"
+                    conflict_label = "ใช้สำหรับผู้บริหาร" if is_executive_conflict else ("ถูกจองแล้ว" if conflict_status == "Approved" else "มีรายการอื่นรออนุมัติ")
                     line_bot_api.reply_message(
                         event.reply_token,
                         TextSendMessage(text=f"❌ อนุมัติไม่ได้ คิว {booking['resource']} ชนกัน: {conflict_label} โดยคุณ {conflict_user}")
@@ -276,33 +292,29 @@ def handle_postback(event):
 
 @app.post("/notify")
 async def notify_booking(request: Request):
+    require_internal_token(request)
     data = await request.json()
     status = data.get("status", "Pending")
     
-    # ดึงค่า Group ID ล่าสุดมาแจ้งเตือนเสมอ
-    try: notify_group_id = supabase.table("app_settings").select("group_id").eq("id", 1).execute().data[0]['group_id']
-    except: notify_group_id = GROUP_ID
-    
     if status == "Approved":
         msg = f"✅ อนุมัติการจองแล้ว\n----------------------\n🚗/🏢 รายการ: {data.get('resource')}\n👤 ผู้จอง: {data.get('name')} ({data.get('dept')})\n📅 เวลา: {data.get('date')}\n📍 ปลายทาง: {data.get('destination', '-')}\n🎯 วัตถุประสงค์: {data.get('purpose', '-')}"
-        line_bot_api.push_message(notify_group_id, TextSendMessage(text=msg))
+        line_bot_api.push_message(GROUP_ID, TextSendMessage(text=msg))
     else:
-        line_bot_api.push_message(notify_group_id, create_approval_flex(data.get("id"), data))
+        line_bot_api.push_message(GROUP_ID, create_approval_flex(data.get("id"), data))
     return {"status": "success"}
 
-@app.get("/check-reminders")
-def check_reminders():
-    try: notify_group_id = supabase.table("app_settings").select("group_id").eq("id", 1).execute().data[0]['group_id']
-    except: notify_group_id = GROUP_ID
+@app.post("/check-reminders")
+def check_reminders(request: Request):
+    require_internal_token(request)
 
-    now = datetime.now()
+    now = thai_wall_now()
     t_min = (now + timedelta(minutes=14)).isoformat()
     t_max = (now + timedelta(minutes=16)).isoformat()
     res = supabase.table("bookings").select("*").eq("status", "Approved").eq("reminder_sent", False).gte("start_time", t_min).lte("start_time", t_max).execute()
     if res.data:
         for item in res.data:
             msg = f"⏰ แจ้งเตือนล่วงหน้า 15 นาที!\n\n🚗/🏢: {item['resource']}\n👤 ผู้จอง: {item['requester']}"
-            line_bot_api.push_message(notify_group_id, TextSendMessage(text=msg))
+            line_bot_api.push_message(GROUP_ID, TextSendMessage(text=msg))
             supabase.table("bookings").update({"reminder_sent": True}).eq("id", item['id']).execute()
     return {"status": "checked"}
 
