@@ -51,8 +51,14 @@ def require_internal_token(request: Request):
 
 ADMIN_IDS = ["Ub5588daf37957fe7625abce16bd8bb8e","U39cfc5182354b7fe5174f181983e4d1a","U7b5850883e4b9b1ca2b172b164ceaf56","Ub9bbccb167730a5b2a0908ed6b20e8ec"]
 
+# รายการรถมาตรฐาน: ใช้เสริมข้อมูลจาก app_settings เพื่อไม่ให้ LINE
+# ตกหล่นเมื่อเว็บเพิ่มรถก่อนที่รายการตั้งค่าในฐานข้อมูลจะถูกอัปเดต
+DEFAULT_CARS = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry", "Camry (เนก)", "MG", "MG (เนก)"]
+
 # รถชื่อแตกต่างกันแต่เป็นรถคันเดียวกัน ต้องใช้คิวร่วมกัน
 RESOURCE_CONFLICT_GROUPS = {
+    "Camry": ["Camry", "Camry (เนก)"],
+    "Camry (เนก)": ["Camry", "Camry (เนก)"],
     "MG": ["MG", "MG (เนก)"],
     "MG (เนก)": ["MG", "MG (เนก)"],
 }
@@ -186,10 +192,11 @@ def handle_message(event):
     # ดึงค่ารถและห้องจากฐานข้อมูลแบบ Real-time เวลาผู้ใช้กดเรียกดู
     try:
         db_sets = supabase.table("app_settings").select("car_list, room_list").eq("id", 1).execute().data[0]
-        SYS_CARS = [x.strip() for x in db_sets['car_list'].split(',')]
+        configured_cars = [x.strip() for x in db_sets['car_list'].split(',') if x.strip()]
+        SYS_CARS = list(dict.fromkeys(configured_cars + DEFAULT_CARS))
         SYS_ROOMS = [x.strip() for x in db_sets['room_list'].split(',')]
     except:
-        SYS_CARS = ["Civic (ตุ้ม)", "Civic (บอล)", "Camry (เนก)", "MG", "MG (เนก)"]
+        SYS_CARS = DEFAULT_CARS.copy()
         SYS_ROOMS = ["ห้องชั้น 1 (ห้องใหญ่)", "ห้องชั้น 2", "ห้อง VIP", "ห้องชั้นลอย", "ห้อง Production"]
 
     now = thai_wall_now()
