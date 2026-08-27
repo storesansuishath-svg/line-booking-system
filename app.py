@@ -63,9 +63,23 @@ RESOURCE_CONFLICT_GROUPS = {
     "MG (เนก)": ["MG", "MG (เนก)"],
 }
 
+# Camry (เนก) และ MG (เนก) ใช้พนักงานขับรถคนเดียวกัน
+# จึงต้องตรวจคิวของคนขับร่วมกัน แม้เป็นรถคนละคัน
+DRIVER_CONFLICT_GROUPS = {
+    "Camry (เนก)": ["Camry (เนก)", "MG (เนก)"],
+    "MG (เนก)": ["Camry (เนก)", "MG (เนก)"],
+}
+
 def get_conflict_resources(resource):
     resource_name = str(resource).strip()
     return RESOURCE_CONFLICT_GROUPS.get(resource_name, [resource_name])
+
+def get_booking_conflict_resources(resource):
+    """Return physical-car and shared-driver queues relevant to a booking."""
+    resource_name = str(resource).strip()
+    resources = list(get_conflict_resources(resource_name))
+    resources.extend(DRIVER_CONFLICT_GROUPS.get(resource_name, []))
+    return list(dict.fromkeys(resources))
 
 def parse_booking_datetime(value):
     value_text = str(value).strip()
@@ -74,7 +88,7 @@ def parse_booking_datetime(value):
     return datetime.fromisoformat(value_text).replace(tzinfo=None)
 
 def check_booking_conflict(resource, start_time_iso, end_time_iso, exclude_booking_id=None):
-    conflict_resources = get_conflict_resources(resource)
+    conflict_resources = get_booking_conflict_resources(resource)
     result = supabase.table("bookings").select("*").in_("resource", conflict_resources).in_("status", ["Approved", "Pending"]).execute()
     new_start = parse_booking_datetime(start_time_iso)
     new_end = parse_booking_datetime(end_time_iso)
